@@ -51,6 +51,8 @@ class ClanViewSet(viewsets.ModelViewSet):
 
             sync_race_service = SyncRiverRaceService()
             sync_race_service.sync(clan)
+            if request.data.get("include_history") or request.query_params.get("include_history"):
+                sync_race_service.sync_race_history(clan)
 
             clan.refresh_from_db()
             return Response(
@@ -63,6 +65,28 @@ class ClanViewSet(viewsets.ModelViewSet):
         except Exception as exc:
             return Response(
                 {"error": f"Error durante la sincronización: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="sync-history",
+        permission_classes=[IsAuthenticated],
+    )
+    def sync_history(self, request, pk=None):
+        """Trigger ingestion of past completed river races from /riverracelog."""
+        clan = self.get_object()
+        try:
+            sync_race_service = SyncRiverRaceService()
+            count = sync_race_service.sync_race_history(clan)
+            return Response(
+                {"message": f"Historial de {count} carreras fluviales sincronizado con éxito."},
+                status=status.HTTP_200_OK,
+            )
+        except Exception as exc:
+            return Response(
+                {"error": f"Error al sincronizar historial: {exc}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 

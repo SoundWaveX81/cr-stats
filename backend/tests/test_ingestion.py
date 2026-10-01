@@ -10,7 +10,7 @@ from apps.clans.models import Clan, Member
 from apps.ingestion.client import ClashRoyaleClient
 from apps.ingestion.exceptions import ClanNotFoundError, RateLimitError
 from apps.ingestion.services import SyncClanService, SyncRiverRaceService
-from apps.wars.models import WarAttackLog
+from apps.wars.models import RiverRace, WarAttackLog
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
@@ -132,3 +132,62 @@ class TestSyncServices:
         log_p4 = logs.get(member__tag="#P4")
         assert log_p4.attacks_used == 2
         assert log_p4.medals_earned == 1400
+
+    @respx.mock
+    def test_sync_race_history(self):
+        from decimal import Decimal
+
+        log_data = {
+            "items": [
+                {
+                    "seasonId": 136,
+                    "sectionIndex": 2,
+                    "createdDate": "20260928T093605.000Z",
+                    "standings": [
+                        {
+                            "clan": {
+                                "tag": "#2PP",
+                                "name": "Furia Roja",
+                                "fame": 10000,
+                                "participants": [
+                                    {
+                                        "tag": "#P1",
+                                        "name": "Carlos",
+                                        "decksUsed": 16,
+                                        "fame": 3600,
+                                        "boatAttacks": 0,
+                                    },
+                                    {
+                                        "tag": "#P2",
+                                        "name": "David",
+                                        "decksUsed": 8,
+                                        "fame": 1800,
+                                        "boatAttacks": 0,
+                                    },
+                                ],
+                            }
+                        }
+                    ],
+                }
+            ]
+        }
+        respx.get("https://api.clashroyale.com/v1/clans/%232PP/riverracelog").mock(
+            return_value=httpx.Response(200, json=log_data)
+        )
+
+        clan = Clan.objects.create(tag="#2PP", name="Furia Roja")
+        Member.objects.create(tag="#P1", clan=clan, name="Carlos", is_active=True)
+        Member.objects.create(tag="#P2", clan=clan, name="David", is_active=True)
+
+        service = SyncRiverRaceService()
+        synced = service.sync_race_history(clan)
+
+        assert synced == 1
+        race = RiverRace.objects.get(clan=clan, season_id=136, section_index=2)
+        assert race.state == "clans_finished"
+        assert race.war_days.count() == 4
+
+        p1 = Member.objects.get(tag="#P1")
+        p2 = Member.objects.get(tag="#P2")
+        assert p1.reliability_score == Decimal("100.00")
+        assert p2.reliability_score == Decimal("50.00")

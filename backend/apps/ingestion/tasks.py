@@ -37,6 +37,28 @@ def task_sync_clan_data(clan_tag: str | None = None) -> int:
     return synced_count
 
 
+@shared_task(name="apps.ingestion.tasks.task_sync_river_race_history")
+def task_sync_river_race_history(clan_tag: str | None = None) -> int:
+    """Sync completed past river races log (/riverracelog) for active clans."""
+    clans = (
+        Clan.objects.filter(tag=clan_tag, is_active=True)
+        if clan_tag
+        else Clan.objects.filter(is_active=True)
+    )
+    total_races = 0
+    sync_race_service = SyncRiverRaceService()
+
+    for clan in clans:
+        try:
+            races = sync_race_service.sync_race_history(clan)
+            total_races += races
+            logger.info(f"Successfully ingested {races} past races for {clan.name} ({clan.tag})")
+        except Exception as exc:
+            logger.exception(f"Error ingesting race history for {clan.tag}: {exc}")
+
+    return total_races
+
+
 @shared_task(name="apps.ingestion.tasks.task_send_pending_attack_reminders")
 def task_send_pending_attack_reminders(clan_tag: str | None = None) -> dict[str, int]:
     """Send reminder alerts to active clan members who have pending war attacks."""

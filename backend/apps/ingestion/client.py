@@ -118,3 +118,8 @@ class ClashRoyaleClient:
         """Fetch current river race data from /v1/clans/{clanTag}/currentriverrace."""
         encoded_tag = self.encode_tag(clan_tag)
         return self._request("GET", f"clans/{encoded_tag}/currentriverrace")
+
+    def get_river_race_log(self, clan_tag: str) -> dict:
+        """Fetch completed river races log from /v1/clans/{clanTag}/riverracelog."""
+        encoded_tag = self.encode_tag(clan_tag)
+        return self._request("GET", f"clans/{encoded_tag}/riverracelog")

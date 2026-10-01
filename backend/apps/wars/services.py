@@ -115,11 +115,15 @@ class CurrentWarService:
                     "boat_attacks": boat_attacks,
                     "has_war_pass": has_pass,
                     "war_pass_reason": active_passes.get(tag),
+                    "reliability_score": float(member.reliability_score),
                 }
             )
 
-        # Sort participants: most pending attacks first, then medals
-        participants_list.sort(key=lambda x: (x["attacks_pending"], -x["medals"]), reverse=True)
+        # Sort participants: most pending attacks first, then lowest reliability score, then medals
+        participants_list.sort(
+            key=lambda x: (x["attacks_pending"], -x["reliability_score"], x["medals"]),
+            reverse=True,
+        )
 
         total_members_count = len(active_members_dict)
         total_attacks_possible = total_members_count * 4

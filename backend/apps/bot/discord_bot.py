@@ -1,5 +1,6 @@
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
+from datetime import timezone as dt_timezone
 
 import discord
 from asgiref.sync import sync_to_async
@@ -248,7 +249,11 @@ def create_discord_bot() -> commands.Bot:
                     continue
                 used = attack_logs[m.tag].attacks_used if m.tag in attack_logs else 0
                 if used < 4:
-                    pending.append((m.name, m.role, used, 4 - used))
+                    pending.append((m.name, m.role, used, 4 - used, float(m.reliability_score)))
+
+            # Sort: fewest attacks first (0/4), lowest reliability score first, regular members first
+            pending.sort(key=lambda x: (x[2], x[4], 0 if x[1] == "member" else 1))
+
             return clan, open_day, pending
 
         clan, open_day, pending = await sync_to_async(_get_pending)()
@@ -271,9 +276,23 @@ def create_discord_bot() -> commands.Bot:
             await ctx.send(embed=embed)
             return
 
+        # Calculate time remaining until 10:00 UTC daily reset
+        cutoff_dt = datetime.combine(
+            open_day.date + timedelta(days=1), time(10, 0), tzinfo=dt_timezone.utc
+        )
+        now = datetime.now(dt_timezone.utc)
+        time_left = cutoff_dt - now
+        total_seconds = max(0, int(time_left.total_seconds()))
+        hours_left = total_seconds // 3600
+        minutes_left = (total_seconds % 3600) // 60
+
         embed = discord.Embed(
             title=f"⚔️ Ataques Pendientes — {clan.name}",
-            description=f"Faltan **{len(pending)}** miembros por completar sus 4 ataques de hoy:",
+            description=(
+                f"Faltan **{len(pending)}** miembros por completar sus 4 ataques de hoy.\n"
+                f"⏰ **Cierre de jornada en:** {hours_left}h {minutes_left}m (10:00 UTC)\n"
+                f"*💡 Prioridad: Miembros con 🚨 tienen baja fiabilidad histórica.*"
+            ),
             color=0xE74C3C,  # Red
         )
         role_labels = {
@@ -282,10 +301,18 @@ def create_discord_bot() -> commands.Bot:
             "elder": "🛡️ Veterano",
             "member": "Miembro",
         }
-        lines = [
-            f"• **{name}** ({role_labels.get(role, role)}) — Restan **{rem}** ({used}/4)"
-            for name, role, used, rem in pending
-        ]
+        lines = []
+        for name, role, used, rem, score in pending:
+            if used == 0 and score < 50.0:
+                tag_label = "🚨 Alto Riesgo"
+            elif used == 0:
+                tag_label = "⚠️ Sin ataques"
+            else:
+                tag_label = "⏳ En progreso"
+
+            lines.append(
+                f"• **{name}** ({role_labels.get(role, role)}) — Restan **{rem}** ataques ({used}/4) | Fiab: **{score:.1f}%** [{tag_label}]"
+            )
 
         chunks = []
         current_chunk = []

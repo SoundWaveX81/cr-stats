@@ -458,6 +458,7 @@ export const CurrentWarPage: React.FC = () => {
                 <th className="py-3.5 px-3">Rol</th>
                 <th className="py-3.5 px-3 text-center">Ataques Hoy</th>
                 <th className="py-3.5 px-3 text-center">Pendientes</th>
+                <th className="py-3.5 px-3 text-center">Confiabilidad</th>
                 <th className="py-3.5 px-3 text-right">Medallas Hoy</th>
                 <th className="py-3.5 px-3 text-center">Barcos</th>
                 <th className="py-3.5 px-3 text-center">Exención</th>
@@ -467,7 +468,7 @@ export const CurrentWarPage: React.FC = () => {
             <tbody className="divide-y divide-slate-800/60 font-medium">
               {filteredParticipants.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500">
+                  <td colSpan={9} className="py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center gap-2">
                       <Users className="w-8 h-8 opacity-40" />
                       <span>No se encontraron jugadores con los filtros aplicados.</span>
@@ -520,6 +521,32 @@ export const CurrentWarPage: React.FC = () => {
                         >
                           {p.attacks_pending}
                         </span>
+                      </td>
+
+                      {/* Reliability Score */}
+                      <td className="py-3 px-3 text-center">
+                        {p.reliability_score !== undefined ? (
+                          <div className="flex flex-col items-center">
+                            <span
+                              className={`font-mono font-bold text-xs ${
+                                p.reliability_score >= 80
+                                  ? 'text-emerald-400'
+                                  : p.reliability_score >= 50
+                                  ? 'text-amber-400'
+                                  : 'text-rose-400'
+                              }`}
+                            >
+                              {p.reliability_score.toFixed(0)}%
+                            </span>
+                            {p.attacks_used === 0 && p.reliability_score < 50 && (
+                              <span className="text-[10px] text-rose-400 font-bold tracking-tight">
+                                🚨 Riesgo
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
                       </td>
 
                       {/* Medals */}

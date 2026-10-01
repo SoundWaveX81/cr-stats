@@ -71,8 +71,30 @@ Cantidad mínima de Medallas acumuladas en una River Race (por defecto 2000) req
 _Avoid_: Meta de puntos, cuota
 
 **Confiabilidad (Reliability Score)**:
-Porcentaje histórico normalizado de asistencia y cumplimiento de ataques en Días de Guerra a lo largo de las últimas River Races.
+Porcentaje histórico normalizado de asistencia y cumplimiento de ataques en Días de Guerra a lo largo de las últimas River Races (0.00% a 100.00%).
 _Avoid_: Ranking, rating, karma, MMR
+
+#### Fórmula de Cálculo:
+$$\text{Confiabilidad (\%)} = \begin{cases} 100.00 & \text{si } \text{Ataques Esperados} = 0 \\ \operatorname{round}\left(\frac{\text{Ataques Reales Realizados}}{\text{Ataques Esperados}} \times 100,\, 2\right) & \text{si } \text{Ataques Esperados} > 0 \end{cases}$$
+
+Donde:
+- **Ataques Reales Realizados**: $\sum_{d \in \text{Días Computables}} \min(\text{ataques\_usados}_d,\, 4)$
+- **Ataques Esperados**: $\text{Días Computables} \times 4$
+
+#### Reglas de Negocio y Casos de Borde:
+1. **Jornadas Concluidas Exclusivamente (`is_closed=True`):**
+   Únicamente se evalúan jornadas de guerra que hayan finalizado formalmente. La jornada en curso (abierta) no penaliza la confiabilidad histórica, permitiendo a los miembros completar sus ataques hasta el reinicio diario (10:00 UTC).
+2. **Ventana Móvil Histórica (`lookback_days = 14`):**
+   La evaluación abarca hasta las últimas 14 jornadas de guerra cerradas (~3.5 semanas / casi un mes de River Races), asegurando que el puntaje refleje el compromiso reciente y no penalice indefinidamente ausencias lejanas.
+3. **Pases de Guerra (`WarPass`):**
+   Si el jugador cuenta con un Pase de Guerra aprobado vigente durante una jornada, ese día se omite completamente del cálculo (no suma ataques esperados ni penaliza).
+4. **Fecha de Ingreso al Clan (`joined_at`):**
+   Un miembro recién incorporado no es evaluado por guerras ocurridas antes de su ingreso al clan, salvo que ya existiese un registro de ataque (`WarAttackLog`) asociado a él en ese día.
+5. **Presunción de Inocencia Inicial:**
+   Todo jugador nuevo que aún no haya vivido ninguna jornada de guerra cerrada en el clan inicia con una confiabilidad de **100.00%**.
+6. **Estrategia Operativa Intra-Jornada (Enfoque Dual):**
+   - **Histórico:** `reliability_score` (refleja constancia en días cerrados).
+   - **En Vivo (Hoy):** Comando `/pendientes` y Dashboard resaltan miembros con `0/4` hoy ordenados por menor fiabilidad histórica con etiqueta `🚨 Alto Riesgo`, facilitando la toma de decisiones de reemplazo antes de las 10:00 UTC.
 
 ### Notificaciones & Bot
 

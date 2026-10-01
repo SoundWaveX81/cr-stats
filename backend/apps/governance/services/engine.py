@@ -151,8 +151,14 @@ class GovernanceEngineService:
                 if has_pass:
                     continue
 
-                expected_attacks += self.REQUIRED_WAR_ATTACKS
                 log = WarAttackLog.objects.filter(war_day=day, member=member).first()
+                was_in_clan = log is not None or (
+                    member.joined_at and member.joined_at.date() <= day.date
+                )
+                if not was_in_clan:
+                    continue
+
+                expected_attacks += self.REQUIRED_WAR_ATTACKS
                 if log:
                     actual_attacks += min(log.attacks_used, self.REQUIRED_WAR_ATTACKS)
 

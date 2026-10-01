@@ -85,6 +85,7 @@ export interface WarParticipant {
   boat_attacks: number;
   has_war_pass: boolean;
   war_pass_reason?: string | null;
+  reliability_score?: number;
 }
 
 export interface WarStats {
