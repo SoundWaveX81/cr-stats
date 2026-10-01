@@ -8,7 +8,7 @@ from discord.ext import commands
 from apps.clans.models import Clan, Member, WarPass
 from apps.governance.models import RosterAction
 from apps.ingestion.services import SyncClanService, SyncRiverRaceService
-from apps.wars.models import RiverRace, WarAttackLog, WarDay
+from apps.wars.models import WarAttackLog, WarDay
 from apps.wars.services import CurrentWarService
 
 logger = logging.getLogger(__name__)
@@ -150,7 +150,9 @@ def create_discord_bot() -> commands.Bot:
                 day_title += " (Coliseo)"
         else:
             training_days = ["Lunes", "Martes", "Miércoles"]
-            t_name = training_days[day_idx] if 0 <= day_idx < len(training_days) else f"D{day_idx + 1}"
+            t_name = (
+                training_days[day_idx] if 0 <= day_idx < len(training_days) else f"D{day_idx + 1}"
+            )
             day_title = f"Día de Entrenamiento ({t_name})"
 
         total_used = stats_info.get("total_attacks_used", 0)
@@ -162,8 +164,12 @@ def create_discord_bot() -> commands.Bot:
             title=f"🏰 Estado del Clan: {clan.name} ({clan.tag})",
             color=0x2B70C9,  # Clash Royale Blue
         )
-        embed.add_field(name="Miembros", value=f"{stats_info.get('total_members', 50)} / 50", inline=True)
-        embed.add_field(name="Trofeos de Guerra", value=f"{clan_info.get('clan_score', 0):,} 🏆", inline=True)
+        embed.add_field(
+            name="Miembros", value=f"{stats_info.get('total_members', 50)} / 50", inline=True
+        )
+        embed.add_field(
+            name="Trofeos de Guerra", value=f"{clan_info.get('clan_score', 0):,} 🏆", inline=True
+        )
         embed.add_field(name="Reinicio Diario", value=f"{clan.war_day_reset_time} UTC", inline=True)
 
         embed.add_field(
@@ -197,10 +203,14 @@ def create_discord_bot() -> commands.Bot:
             medals_emojis = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
             leaderboard_lines = []
             for i, c in enumerate(clans_list[:5]):
-                med = medals_emojis[i] if i < len(medals_emojis) else f"{i+1}."
+                med = medals_emojis[i] if i < len(medals_emojis) else f"{i + 1}."
                 marker = " 👈 (Nosotros)" if c.get("is_user_clan") else ""
-                leaderboard_lines.append(f"{med} **{c.get('name')}**: {c.get('fame', 0):,} medallas{marker}")
-            embed.add_field(name="📊 Clasificación en Vivo", value="\n".join(leaderboard_lines), inline=False)
+                leaderboard_lines.append(
+                    f"{med} **{c.get('name')}**: {c.get('fame', 0):,} medallas{marker}"
+                )
+            embed.add_field(
+                name="📊 Clasificación en Vivo", value="\n".join(leaderboard_lines), inline=False
+            )
 
         await ctx.send(embed=embed)
 

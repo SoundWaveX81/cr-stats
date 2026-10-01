@@ -8,3 +8,6 @@ __pycache__/
 .ruff_cache/
 staticfiles/
 graphify-out/
+celerybeat-schedule*
+node_modules/
+dist/

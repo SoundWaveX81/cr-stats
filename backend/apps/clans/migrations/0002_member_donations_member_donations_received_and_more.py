@@ -4,30 +4,37 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('clans', '0001_initial'),
+        ("clans", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='member',
-            name='donations',
-            field=models.PositiveIntegerField(default=0, help_text='Cartas donadas en la semana actual'),
+            model_name="member",
+            name="donations",
+            field=models.PositiveIntegerField(
+                default=0, help_text="Cartas donadas en la semana actual"
+            ),
         ),
         migrations.AddField(
-            model_name='member',
-            name='donations_received',
-            field=models.PositiveIntegerField(default=0, help_text='Cartas recibidas en donación en la semana actual'),
+            model_name="member",
+            name="donations_received",
+            field=models.PositiveIntegerField(
+                default=0, help_text="Cartas recibidas en donación en la semana actual"
+            ),
         ),
         migrations.AddField(
-            model_name='member',
-            name='last_seen',
-            field=models.DateTimeField(blank=True, help_text='Última conexión registrada por Clash Royale', null=True),
+            model_name="member",
+            name="last_seen",
+            field=models.DateTimeField(
+                blank=True, help_text="Última conexión registrada por Clash Royale", null=True
+            ),
         ),
         migrations.AddField(
-            model_name='member',
-            name='trophies',
-            field=models.PositiveIntegerField(default=0, help_text='Trofeos actuales del jugador en copas/liga'),
+            model_name="member",
+            name="trophies",
+            field=models.PositiveIntegerField(
+                default=0, help_text="Trofeos actuales del jugador en copas/liga"
+            ),
         ),
     ]

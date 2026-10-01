@@ -1,0 +1,32 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: backend-ruff-check
+        name: Ruff Lint Check & Fix (Backend)
+        entry: uv run --project backend ruff check --fix
+        language: system
+        files: ^backend/
+        types: [python]
+
+      - id: backend-ruff-format
+        name: Ruff Format (Backend)
+        entry: uv run --project backend ruff format
+        language: system
+        files: ^backend/
+        types: [python]
+
+      - id: frontend-lint
+        name: Oxlint (Frontend)
+        entry: npm --prefix frontend run lint
+        language: system
+        files: ^frontend/
+        pass_filenames: false

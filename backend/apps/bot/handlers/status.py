@@ -94,7 +94,7 @@ def handle_status(args: list[str]) -> str:
         medals_emojis = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
         lines.append("\n📊 <b>Clasificación en la Carrera:</b>")
         for i, c in enumerate(clans_list[:5]):
-            medal = medals_emojis[i] if i < len(medals_emojis) else f"{i+1}."
+            medal = medals_emojis[i] if i < len(medals_emojis) else f"{i + 1}."
             is_us = c.get("is_user_clan", False)
             marker = " 👈 <i>(Nosotros)</i>" if is_us else ""
             lines.append(
@@ -102,4 +102,3 @@ def handle_status(args: list[str]) -> str:
             )
 
     return "\n".join(lines)
-

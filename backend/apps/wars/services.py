@@ -26,9 +26,7 @@ class CurrentWarService:
         }
 
         # Active members in the database
-        active_members_dict = {
-            m.tag: m for m in clan.members.filter(is_active=True)
-        }
+        active_members_dict = {m.tag: m for m in clan.members.filter(is_active=True)}
 
         if getattr(settings, "TESTING", False):
             return self._build_from_db(clan, active_members_dict, active_passes)
@@ -75,15 +73,17 @@ class CurrentWarService:
             if is_me:
                 user_rank = idx
                 user_fame = fame
-            clans_list.append({
-                "rank": idx,
-                "tag": rc.get("tag"),
-                "name": rc.get("name"),
-                "badge_id": rc.get("badgeId"),
-                "fame": fame,
-                "clan_score": rc.get("clanScore", 0),
-                "is_user_clan": is_me,
-            })
+            clans_list.append(
+                {
+                    "rank": idx,
+                    "tag": rc.get("tag"),
+                    "name": rc.get("name"),
+                    "badge_id": rc.get("badgeId"),
+                    "fame": fame,
+                    "clan_score": rc.get("clanScore", 0),
+                    "is_user_clan": is_me,
+                }
+            )
 
         # Process participants
         clan_data = data.get("clan", {})
@@ -104,17 +104,19 @@ class CurrentWarService:
             total_attacks_used += attacks_used
             has_pass = tag in active_passes
 
-            participants_list.append({
-                "tag": member.tag,
-                "name": member.name,
-                "role": member.role,
-                "attacks_used": attacks_used,
-                "attacks_pending": attacks_pending,
-                "medals": medals,
-                "boat_attacks": boat_attacks,
-                "has_war_pass": has_pass,
-                "war_pass_reason": active_passes.get(tag),
-            })
+            participants_list.append(
+                {
+                    "tag": member.tag,
+                    "name": member.name,
+                    "role": member.role,
+                    "attacks_used": attacks_used,
+                    "attacks_pending": attacks_pending,
+                    "medals": medals,
+                    "boat_attacks": boat_attacks,
+                    "has_war_pass": has_pass,
+                    "war_pass_reason": active_passes.get(tag),
+                }
+            )
 
         # Sort participants: most pending attacks first, then medals
         participants_list.sort(key=lambda x: (x["attacks_pending"], -x["medals"]), reverse=True)
@@ -174,10 +176,14 @@ class CurrentWarService:
         day_type = war_day.day_type if war_day else "war"
         day_index = war_day.day_index if war_day else 3
 
-        logs = {
-            log.member.tag: log
-            for log in WarAttackLog.objects.filter(war_day=war_day).select_related("member")
-        } if war_day else {}
+        logs = (
+            {
+                log.member.tag: log
+                for log in WarAttackLog.objects.filter(war_day=war_day).select_related("member")
+            }
+            if war_day
+            else {}
+        )
 
         participants_list = []
         total_attacks_used = 0
@@ -192,17 +198,19 @@ class CurrentWarService:
             total_attacks_used += attacks_used
             has_pass = tag in active_passes
 
-            participants_list.append({
-                "tag": member.tag,
-                "name": member.name,
-                "role": member.role,
-                "attacks_used": attacks_used,
-                "attacks_pending": attacks_pending,
-                "medals": medals,
-                "boat_attacks": boat_attacks,
-                "has_war_pass": has_pass,
-                "war_pass_reason": active_passes.get(tag),
-            })
+            participants_list.append(
+                {
+                    "tag": member.tag,
+                    "name": member.name,
+                    "role": member.role,
+                    "attacks_used": attacks_used,
+                    "attacks_pending": attacks_pending,
+                    "medals": medals,
+                    "boat_attacks": boat_attacks,
+                    "has_war_pass": has_pass,
+                    "war_pass_reason": active_passes.get(tag),
+                }
+            )
 
         participants_list.sort(key=lambda x: (x["attacks_pending"], -x["medals"]), reverse=True)
         total_members_count = len(active_members_dict)
@@ -238,14 +246,16 @@ class CurrentWarService:
                 "gap_to_first": 0,
                 "wins_needed_for_first": 0,
             },
-            "clans": [{
-                "rank": 1,
-                "tag": clan.tag,
-                "name": clan.name,
-                "badge_id": 0,
-                "fame": user_fame,
-                "clan_score": clan.medal_threshold,
-                "is_user_clan": True,
-            }],
+            "clans": [
+                {
+                    "rank": 1,
+                    "tag": clan.tag,
+                    "name": clan.name,
+                    "badge_id": 0,
+                    "fame": user_fame,
+                    "clan_score": clan.medal_threshold,
+                    "is_user_clan": True,
+                }
+            ],
             "participants": participants_list,
         }
