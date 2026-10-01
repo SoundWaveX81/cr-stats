@@ -201,19 +201,31 @@ class TestGovernanceReliabilityScores:
 
         # Day 1: 4 ataques (cumplido)
         d1 = WarDay.objects.create(
-            river_race=race, date=today - timedelta(days=3), day_index=3, day_type="war"
+            river_race=race,
+            date=today - timedelta(days=3),
+            day_index=3,
+            day_type="war",
+            is_closed=True,
         )
         WarAttackLog.objects.create(war_day=d1, member=member, attacks_used=4)
 
         # Day 2: 2 ataques (incompleto)
         d2 = WarDay.objects.create(
-            river_race=race, date=today - timedelta(days=2), day_index=4, day_type="war"
+            river_race=race,
+            date=today - timedelta(days=2),
+            day_index=4,
+            day_type="war",
+            is_closed=True,
         )
         WarAttackLog.objects.create(war_day=d2, member=member, attacks_used=2)
 
         # Day 3: Pase de guerra aprobado (exento del cálculo)
         d3 = WarDay.objects.create(
-            river_race=race, date=today - timedelta(days=1), day_index=5, day_type="war"
+            river_race=race,
+            date=today - timedelta(days=1),
+            day_index=5,
+            day_type="war",
+            is_closed=True,
         )
         WarPass.objects.create(
             member=member,
@@ -224,10 +236,22 @@ class TestGovernanceReliabilityScores:
         WarAttackLog.objects.create(war_day=d3, member=member, attacks_used=0)
 
         # Day 4: 4 ataques (cumplido)
-        d4 = WarDay.objects.create(river_race=race, date=today, day_index=6, day_type="war")
+        d4 = WarDay.objects.create(
+            river_race=race, date=today, day_index=6, day_type="war", is_closed=True
+        )
         WarAttackLog.objects.create(war_day=d4, member=member, attacks_used=4)
 
-        # Días esperados: D1, D2, D4 (D3 exento) = 3 días * 4 ataques = 12 ataques esperados
+        # Day 5: Jornada abierta en curso (is_closed=False) - NO debe computar
+        d5 = WarDay.objects.create(
+            river_race=race,
+            date=today + timedelta(days=1),
+            day_index=7,
+            day_type="war",
+            is_closed=False,
+        )
+        WarAttackLog.objects.create(war_day=d5, member=member, attacks_used=0)
+
+        # Días esperados: D1, D2, D4 (D3 exento, D5 ignorado por abierto) = 3 días * 4 ataques = 12 ataques esperados
         # Ataques usados: 4 + 2 + 4 = 10 ataques
         # Fiabilidad esperada: (10 / 12) * 100 = 83.33%
         results = service.update_reliability_scores(clan)

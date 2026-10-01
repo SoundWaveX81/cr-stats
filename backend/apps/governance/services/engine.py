@@ -128,9 +128,11 @@ class GovernanceEngineService:
     def update_reliability_scores(self, clan: Clan, lookback_days: int = 14) -> dict[str, Decimal]:
         """Recalculate attendance reliability scores over the latest war days."""
         war_days = list(
-            WarDay.objects.filter(river_race__clan=clan, day_type="war").order_by("-date")[
-                :lookback_days
-            ]
+            WarDay.objects.filter(
+                river_race__clan=clan,
+                day_type="war",
+                is_closed=True,
+            ).order_by("-date")[:lookback_days]
         )
         if not war_days:
             return {}
