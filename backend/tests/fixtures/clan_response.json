@@ -1,0 +1,85 @@
+{
+  "tag": "#2PP",
+  "name": "Furia Roja",
+  "type": "inviteOnly",
+  "description": "Clan competitivo enfocado en ganar carreras fluviales.",
+  "badgeId": 16000002,
+  "clanScore": 54200,
+  "clanWarTrophies": 3200,
+  "location": {
+    "id": 57000224,
+    "name": "Spain",
+    "isCountry": true,
+    "countryCode": "ES"
+  },
+  "requiredTrophies": 6000,
+  "donationsPerWeek": 14200,
+  "members": 5,
+  "memberList": [
+    {
+      "tag": "#P1",
+      "name": "Carlos L",
+      "role": "leader",
+      "lastSeen": "20260930T180000.000Z",
+      "expLevel": 15,
+      "trophies": 7500,
+      "arena": { "id": 54000012, "name": "Ultimate Champion" },
+      "clanRank": 1,
+      "previousClanRank": 1,
+      "donations": 450,
+      "donationsReceived": 100
+    },
+    {
+      "tag": "#P2",
+      "name": "Ana Col",
+      "role": "coLeader",
+      "lastSeen": "20260930T174500.000Z",
+      "expLevel": 15,
+      "trophies": 7300,
+      "arena": { "id": 54000012, "name": "Ultimate Champion" },
+      "clanRank": 2,
+      "previousClanRank": 2,
+      "donations": 300,
+      "donationsReceived": 150
+    },
+    {
+      "tag": "#P3",
+      "name": "Marcos Vet",
+      "role": "elder",
+      "lastSeen": "20260930T162000.000Z",
+      "expLevel": 14,
+      "trophies": 6800,
+      "arena": { "id": 54000011, "name": "Grand Champion" },
+      "clanRank": 3,
+      "previousClanRank": 3,
+      "donations": 200,
+      "donationsReceived": 200
+    },
+    {
+      "tag": "#P4",
+      "name": "Lucas M",
+      "role": "member",
+      "lastSeen": "20260930T121000.000Z",
+      "expLevel": 13,
+      "trophies": 6400,
+      "arena": { "id": 54000010, "name": "Champion" },
+      "clanRank": 4,
+      "previousClanRank": 4,
+      "donations": 80,
+      "donationsReceived": 120
+    },
+    {
+      "tag": "#P5",
+      "name": "Sofia M",
+      "role": "member",
+      "lastSeen": "20260929T220000.000Z",
+      "expLevel": 14,
+      "trophies": 6550,
+      "arena": { "id": 54000010, "name": "Champion" },
+      "clanRank": 5,
+      "previousClanRank": 5,
+      "donations": 0,
+      "donationsReceived": 50
+    }
+  ]
+}

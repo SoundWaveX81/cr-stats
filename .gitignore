@@ -1,1 +1,10 @@
 .env
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+.pytest_cache/
+.ruff_cache/
+staticfiles/
+graphify-out/

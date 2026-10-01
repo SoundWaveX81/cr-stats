@@ -1,0 +1,3 @@
+# Reglas de Gobernanza Diaria y Auditoría en Días de Guerra
+
+La evaluación de cumplimiento se ejecuta al cierre de cada Día de Guerra (jueves a domingo), sancionando con expulsión a Miembros o descenso a Veteranos que no completen los 4 Ataques de Guerra diarios, detectando además Ataques a Barco no deseados. Se excluyen de sanciones a Líderes y Colíderes (generando únicamente un reporte informativo de infracción) y a Miembros con Exención Temporal activa para esa River Race, mientras que los ascensos automáticos a Veterano exigen 100% de ataques completados y superar el Umbral de Medallas (2000 medallas).

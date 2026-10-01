@@ -1,0 +1,64 @@
+{
+  "state": "fullState",
+  "clan": {
+    "tag": "#2PP",
+    "name": "Furia Roja",
+    "badgeId": 16000002,
+    "fame": 11000,
+    "repairPoints": 0,
+    "finishTime": null,
+    "clanScore": 54200,
+    "participants": [
+      {
+        "tag": "#P1",
+        "name": "Carlos L",
+        "fame": 3600,
+        "repairPoints": 0,
+        "boatAttacks": 0,
+        "decksUsed": 4,
+        "decksUsedToday": 4
+      },
+      {
+        "tag": "#P2",
+        "name": "Ana Col",
+        "fame": 3200,
+        "repairPoints": 0,
+        "boatAttacks": 0,
+        "decksUsed": 4,
+        "decksUsedToday": 4
+      },
+      {
+        "tag": "#P3",
+        "name": "Marcos Vet",
+        "fame": 2800,
+        "repairPoints": 0,
+        "boatAttacks": 1,
+        "decksUsed": 4,
+        "decksUsedToday": 4
+      },
+      {
+        "tag": "#P4",
+        "name": "Lucas M",
+        "fame": 1400,
+        "repairPoints": 0,
+        "boatAttacks": 0,
+        "decksUsed": 2,
+        "decksUsedToday": 2
+      },
+      {
+        "tag": "#P5",
+        "name": "Sofia M",
+        "fame": 0,
+        "repairPoints": 0,
+        "boatAttacks": 0,
+        "decksUsed": 0,
+        "decksUsedToday": 0
+      }
+    ]
+  },
+  "clans": [],
+  "sectionIndex": 1,
+  "periodIndex": 3,
+  "periodType": "war",
+  "periodLogs": []
+}
