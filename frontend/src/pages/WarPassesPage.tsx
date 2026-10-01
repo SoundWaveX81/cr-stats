@@ -17,6 +17,7 @@ export const WarPassesPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(Boolean(initialMember));
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [todayStr] = useState<string>(() => new Date().toISOString().split('T')[0]);
 
   const loadData = useCallback(async () => {
     try {
@@ -36,7 +37,10 @@ export const WarPassesPage: React.FC = () => {
   }, [selectedClan]);
 
   useEffect(() => {
-    loadData();
+    const fetchData = async () => {
+      await loadData();
+    };
+    fetchData();
   }, [loadData]);
 
   const handleDelete = async (id: number) => {
@@ -166,7 +170,7 @@ export const WarPassesPage: React.FC = () => {
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                       Activo Hoy
                     </span>
-                  ) : new Date(pass.end_date) < new Date() ? (
+                  ) : pass.end_date < todayStr ? (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-500 border border-slate-700">
                       Finalizado
                     </span>

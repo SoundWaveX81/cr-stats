@@ -16,10 +16,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('cr_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const token = localStorage.getItem('cr_access_token');
+      const saved = localStorage.getItem('cr_user');
+      return token && saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading] = useState<boolean>(false);
 
   const isAuthenticated = Boolean(user && localStorage.getItem('cr_access_token'));
 
@@ -31,19 +36,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('cr_access_token');
-    const savedUser = localStorage.getItem('cr_user');
-    if (token && savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        setUser(null);
-      }
-    } else {
-      setUser(null);
-    }
-    setIsLoading(false);
-
     const handleAuthExpired = () => {
       logout();
     };
@@ -75,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+// oxlint-disable-next-line react/only-export-components
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {

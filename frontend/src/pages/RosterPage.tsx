@@ -60,7 +60,10 @@ export const RosterPage: React.FC = () => {
 
   useEffect(() => {
     if (selectedClan) {
-      loadMembers(selectedClan.tag);
+      const fetchClanMembers = async () => {
+        await loadMembers(selectedClan.tag);
+      };
+      fetchClanMembers();
     }
   }, [selectedClan, loadMembers]);
 

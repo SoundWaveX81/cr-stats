@@ -23,13 +23,12 @@ export const CreateWarPassModal: React.FC<CreateWarPassModalProps> = ({
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedMemberTag, setSelectedMemberTag] = useState<string>(initialMemberTag || '');
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const nextWeek = new Date();
-  nextWeek.setDate(nextWeek.getDate() + 4);
-  const nextWeekStr = nextWeek.toISOString().split('T')[0];
-
-  const [startDate, setStartDate] = useState<string>(todayStr);
-  const [endDate, setEndDate] = useState<string>(nextWeekStr);
+  const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState<string>(() => {
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 4);
+    return nextWeek.toISOString().split('T')[0];
+  });
   const [reason, setReason] = useState<string>('');
 
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);

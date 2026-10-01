@@ -32,7 +32,10 @@ export const GovernancePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    loadData();
+    const fetchData = async () => {
+      await loadData();
+    };
+    fetchData();
   }, [loadData]);
 
   const handleExecute = async (id: number) => {

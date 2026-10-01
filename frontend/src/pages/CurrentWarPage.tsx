@@ -80,7 +80,10 @@ export const CurrentWarPage: React.FC = () => {
 
   useEffect(() => {
     if (selectedClan) {
-      loadWarData(selectedClan.tag);
+      const fetchCurrentWar = async () => {
+        await loadWarData(selectedClan.tag);
+      };
+      fetchCurrentWar();
     }
   }, [selectedClan, loadWarData]);
 
