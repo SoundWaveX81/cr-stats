@@ -1,5 +1,13 @@
 import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
-import type { AuthTokens, Clan, CurrentWarOverview, Member, RosterAction, WarPass } from '../types/domain';
+import type {
+  AuthTokens,
+  Clan,
+  CurrentWarOverview,
+  Member,
+  MemberWarHistoryResponse,
+  RosterAction,
+  WarPass,
+} from '../types/domain';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -159,6 +167,14 @@ export const rosterActionsApi = {
   },
   dismiss: async (id: number) => {
     const { data } = await apiClient.post<{ message: string; action: RosterAction }>(`/api/roster-actions/${id}/dismiss/`);
+    return data;
+  },
+};
+
+export const membersApi = {
+  getWarHistory: async (tag: string) => {
+    const encodedTag = encodeURIComponent(tag);
+    const { data } = await apiClient.get<MemberWarHistoryResponse>(`/api/members/${encodedTag}/war-history/`);
     return data;
   },
 };

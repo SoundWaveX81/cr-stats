@@ -152,15 +152,11 @@ class GovernanceEngineService:
                     continue
 
                 log = WarAttackLog.objects.filter(war_day=day, member=member).first()
-                was_in_clan = log is not None or (
-                    member.joined_at and member.joined_at.date() <= day.date
-                )
-                if not was_in_clan:
+                if log is None:
                     continue
 
                 expected_attacks += self.REQUIRED_WAR_ATTACKS
-                if log:
-                    actual_attacks += min(log.attacks_used, self.REQUIRED_WAR_ATTACKS)
+                actual_attacks += min(log.attacks_used, self.REQUIRED_WAR_ATTACKS)
 
             if expected_attacks == 0:
                 score = Decimal("100.00")

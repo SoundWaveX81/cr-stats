@@ -4,7 +4,7 @@ from typing import Any
 
 from django.conf import settings
 
-from apps.clans.models import Clan, WarPass
+from apps.clans.models import Clan, Member, WarPass
 from apps.ingestion.client import ClashRoyaleClient
 from apps.wars.models import RiverRace, WarAttackLog, WarDay
 
@@ -262,4 +262,149 @@ class CurrentWarService:
                 }
             ],
             "participants": participants_list,
+        }
+
+
+class MemberWarHistoryService:
+    """Service to retrieve historical war attendance and attack logs for a member."""
+
+    DAY_NAMES = {
+        0: "Lunes",
+        1: "Martes",
+        2: "Miércoles",
+        3: "Jueves",
+        4: "Viernes",
+        5: "Sábado",
+        6: "Domingo",
+    }
+
+    def get_member_war_history(self, member: Member, max_races: int = 10) -> dict[str, Any]:
+        """Return the detailed war attack history across the last completed and current races."""
+        logs = (
+            WarAttackLog.objects.filter(member=member)
+            .select_related("war_day__river_race")
+            .order_by("-war_day__date")
+        )
+
+        war_passes = list(member.war_passes.all())
+
+        race_dict: dict[tuple[int, int], dict] = {}
+        for log in logs:
+            race = log.war_day.river_race
+            key = (race.season_id, race.section_index)
+            if key not in race_dict:
+                if len(race_dict) >= max_races:
+                    continue
+                race_dict[key] = {
+                    "season_id": race.season_id,
+                    "section_index": race.section_index,
+                    "state": race.state,
+                    "logs": [],
+                }
+            if key in race_dict:
+                race_dict[key]["logs"].append(log)
+
+        total_races = len(race_dict)
+        total_war_days = 0
+        total_attacks_used = 0
+        total_attacks_expected = 0
+        total_medals = 0
+        total_boat_attacks = 0
+
+        races_payload = []
+        for (s_id, sec_idx), r_data in race_dict.items():
+            r_logs = r_data["logs"]
+            r_logs.sort(key=lambda item: item.war_day.date)
+
+            race_attacks_used = 0
+            race_medals = 0
+            race_boat_attacks = 0
+
+            days_payload = []
+            for log in r_logs:
+                w_day = log.war_day
+                has_pass = any(wp.start_date <= w_day.date <= wp.end_date for wp in war_passes)
+                pass_reason = next(
+                    (wp.reason for wp in war_passes if wp.start_date <= w_day.date <= wp.end_date),
+                    None,
+                )
+
+                if w_day.day_type == "war":
+                    total_war_days += 1
+                    total_attacks_used += log.attacks_used
+                    total_medals += log.medals_earned
+                    total_boat_attacks += log.boat_attacks_count
+
+                    if not has_pass and w_day.is_closed:
+                        total_attacks_expected += 4
+
+                race_attacks_used += log.attacks_used
+                race_medals += log.medals_earned
+                race_boat_attacks += log.boat_attacks_count
+
+                days_payload.append(
+                    {
+                        "date": str(w_day.date),
+                        "day_index": w_day.day_index,
+                        "day_name": self.DAY_NAMES.get(w_day.day_index, f"Día {w_day.day_index}"),
+                        "day_type": w_day.day_type,
+                        "is_closed": w_day.is_closed,
+                        "attacks_used": log.attacks_used,
+                        "max_attacks": 4 if w_day.day_type == "war" else 0,
+                        "medals_earned": log.medals_earned,
+                        "boat_attacks_count": log.boat_attacks_count,
+                        "has_war_pass": has_pass,
+                        "war_pass_reason": pass_reason,
+                    }
+                )
+
+            start_date = str(r_logs[0].war_day.date) if r_logs else None
+            end_date = str(r_logs[-1].war_day.date) if r_logs else None
+            war_days_in_race = sum(1 for log_item in r_logs if log_item.war_day.day_type == "war")
+
+            races_payload.append(
+                {
+                    "season_id": s_id,
+                    "section_index": sec_idx,
+                    "state": r_data["state"],
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "total_attacks": race_attacks_used,
+                    "max_attacks": war_days_in_race * 4,
+                    "medals": race_medals,
+                    "boat_attacks": race_boat_attacks,
+                    "days": days_payload,
+                }
+            )
+
+        attendance_rate = (
+            min(100.0, round(total_attacks_used / total_attacks_expected * 100, 2))
+            if total_attacks_expected > 0
+            else float(member.reliability_score)
+        )
+
+        return {
+            "member": {
+                "tag": member.tag,
+                "name": member.name,
+                "role": member.role,
+                "clan_tag": member.clan.tag if member.clan else None,
+                "clan_name": member.clan.name if member.clan else None,
+                "reliability_score": float(member.reliability_score),
+                "trophies": member.trophies,
+                "donations": member.donations,
+                "donations_received": member.donations_received,
+                "last_seen": member.last_seen.isoformat() if member.last_seen else None,
+                "joined_at": member.joined_at.isoformat() if member.joined_at else None,
+            },
+            "summary": {
+                "races_analyzed": total_races,
+                "total_war_days": total_war_days,
+                "total_attacks_used": total_attacks_used,
+                "total_attacks_expected": total_attacks_expected,
+                "attendance_rate": attendance_rate,
+                "total_medals": total_medals,
+                "total_boat_attacks": total_boat_attacks,
+            },
+            "races": races_payload,
         }

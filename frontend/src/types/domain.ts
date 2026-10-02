@@ -122,3 +122,58 @@ export interface CurrentWarOverview {
   clans: CompetingClan[];
   participants: WarParticipant[];
 }
+
+export interface MemberWarDayHistory {
+  date: string;
+  day_index: number;
+  day_name: string;
+  day_type: 'war' | 'training' | string;
+  is_closed: boolean;
+  attacks_used: number;
+  max_attacks: number;
+  medals_earned: number;
+  boat_attacks_count: number;
+  has_war_pass: boolean;
+  war_pass_reason: string | null;
+}
+
+export interface MemberRaceHistory {
+  season_id: number;
+  section_index: number;
+  state: string;
+  start_date: string | null;
+  end_date: string | null;
+  total_attacks: number;
+  max_attacks: number;
+  medals: number;
+  boat_attacks: number;
+  days: MemberWarDayHistory[];
+}
+
+export interface MemberWarHistorySummary {
+  races_analyzed: number;
+  total_war_days: number;
+  total_attacks_used: number;
+  total_attacks_expected: number;
+  attendance_rate: number;
+  total_medals: number;
+  total_boat_attacks: number;
+}
+
+export interface MemberWarHistoryResponse {
+  member: {
+    tag: string;
+    name: string;
+    role: ClanRole;
+    clan_tag: string | null;
+    clan_name: string | null;
+    reliability_score: number;
+    trophies: number;
+    donations: number;
+    donations_received: number;
+    last_seen: string | null;
+    joined_at: string | null;
+  };
+  summary: MemberWarHistorySummary;
+  races: MemberRaceHistory[];
+}

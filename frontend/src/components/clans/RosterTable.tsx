@@ -9,10 +9,13 @@ import {
   Trophy,
   HandHeart,
   Clock,
-  Calendar,
+  History,
+  HelpCircle,
 } from 'lucide-react';
 import type { Member } from '../../types/domain';
 import { RoleBadge, ReliabilityBadge } from '../common/Badge';
+import { PlayerWarHistoryModal } from './PlayerWarHistoryModal';
+import { ReliabilityModal, type ReliabilityMemberContext } from '../common/ReliabilityModal';
 
 interface RosterTableProps {
   members: Member[];
@@ -25,8 +28,7 @@ type SortField =
   | 'role'
   | 'trophies'
   | 'donations'
-  | 'last_seen'
-  | 'joined_at';
+  | 'last_seen';
 type SortOrder = 'asc' | 'desc';
 
 const formatRelativeTime = (
@@ -50,32 +52,13 @@ const formatRelativeTime = (
   return { label: `${months} m`, dotColor: 'bg-rose-600' };
 };
 
-const formatJoinedDate = (
-  isoString: string | null | undefined
-): { dateStr: string; relativeStr: string } => {
-  if (!isoString) return { dateStr: '—', relativeStr: '' };
-  const d = new Date(isoString);
-  if (isNaN(d.getTime())) return { dateStr: '—', relativeStr: '' };
-  const dateStr = d.toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-  const diffDays = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
-  let relativeStr = '';
-  if (diffDays === 0) relativeStr = 'Hoy';
-  else if (diffDays === 1) relativeStr = 'Ayer';
-  else if (diffDays < 30) relativeStr = `Hace ${diffDays}d`;
-  else if (diffDays < 365) relativeStr = `Hace ${Math.floor(diffDays / 30)}m`;
-  else relativeStr = `Hace ${Math.floor(diffDays / 365)}a`;
-  return { dateStr, relativeStr };
-};
-
 export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPass }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField>('trophies');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [selectedMemberTagForHistory, setSelectedMemberTagForHistory] = useState<string | null>(null);
+  const [reliabilityModalContext, setReliabilityModalContext] = useState<ReliabilityMemberContext | null | 'general'>(null);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -87,7 +70,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
         'trophies',
         'donations',
         'last_seen',
-        'joined_at',
       ].includes(field);
       setSortOrder(defaultDesc ? 'desc' : 'asc');
     }
@@ -121,10 +103,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
         } else if (sortField === 'last_seen') {
           const timeA = a.last_seen ? new Date(a.last_seen).getTime() : 0;
           const timeB = b.last_seen ? new Date(b.last_seen).getTime() : 0;
-          comparison = timeA - timeB;
-        } else if (sortField === 'joined_at') {
-          const timeA = a.joined_at ? new Date(a.joined_at).getTime() : 0;
-          const timeB = b.joined_at ? new Date(b.joined_at).getTime() : 0;
           comparison = timeA - timeB;
         } else if (sortField === 'name') {
           comparison = (a.name || '').localeCompare(b.name || '');
@@ -244,26 +222,26 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
                 </div>
               </th>
 
-              {/* Member Since (joined_at) */}
-              <th
-                onClick={() => handleSort('joined_at')}
-                className="py-3.5 px-3 cursor-pointer hover:text-slate-200 transition-colors"
-              >
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Antigüedad</span>
-                  <ArrowUpDown className="w-3.5 h-3.5" />
-                </div>
-              </th>
-
               {/* Reliability Score */}
-              <th
-                onClick={() => handleSort('reliability_score')}
-                className="py-3.5 px-3 cursor-pointer hover:text-slate-200 transition-colors"
-              >
+              <th className="py-3.5 px-3 hover:text-slate-200 transition-colors">
                 <div className="flex items-center gap-1.5">
-                  <span>Confiabilidad</span>
-                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  <span
+                    onClick={() => handleSort('reliability_score')}
+                    className="cursor-pointer flex items-center gap-1"
+                  >
+                    <span>Confiabilidad</span>
+                    <ArrowUpDown className="w-3.5 h-3.5" />
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setReliabilityModalContext('general');
+                    }}
+                    className="text-slate-500 hover:text-amber-400 p-0.5 rounded transition-colors"
+                    title="¿Cómo se calcula la confiabilidad?"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </th>
 
@@ -277,7 +255,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
           <tbody className="divide-y divide-slate-800/60 font-medium">
             {filteredMembers.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-slate-500">
+                <td colSpan={8} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center gap-2">
                     <Users className="w-8 h-8 opacity-40" />
                     <span>No se encontraron miembros con los filtros aplicados.</span>
@@ -288,15 +266,24 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
               filteredMembers.map((member) => (
                 <tr
                   key={member.tag}
-                  className="hover:bg-slate-800/40 transition-colors group"
+                  onClick={() => setSelectedMemberTagForHistory(member.tag)}
+                  className="hover:bg-slate-800/40 transition-colors group cursor-pointer"
                 >
                   {/* Member Name + Tag */}
                   <td className="py-3 px-4 sm:px-6">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-100 group-hover:text-amber-400 transition-colors">
-                        {member.name}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-100 group-hover:text-amber-400 transition-colors">
+                          {member.name}
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-500">{member.tag}</span>
+                      </div>
+                      <span
+                        className="opacity-0 group-hover:opacity-100 text-amber-400 transition-opacity"
+                        title="Ver historial de 10 guerras"
+                      >
+                        <History className="w-3.5 h-3.5" />
                       </span>
-                      <span className="font-mono text-[10px] text-slate-500">{member.tag}</span>
                     </div>
                   </td>
 
@@ -344,21 +331,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
                     })()}
                   </td>
 
-                  {/* Member Since (joined_at) */}
-                  <td className="py-3 px-3">
-                    {(() => {
-                      const { dateStr, relativeStr } = formatJoinedDate(member.joined_at);
-                      return (
-                        <div className="flex flex-col whitespace-nowrap">
-                          <span className="text-slate-200 font-medium">{dateStr}</span>
-                          {relativeStr && (
-                            <span className="text-[10px] text-slate-500">{relativeStr}</span>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </td>
-
                   {/* Reliability Score */}
                   <td className="py-3 px-3">
                     {(() => {
@@ -367,7 +339,19 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
                           ? member.reliability_score
                           : parseFloat(String(member.reliability_score ?? 0)) || 0;
                       return (
-                        <div className="flex items-center gap-2 max-w-[140px]">
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReliabilityModalContext({
+                              name: member.name,
+                              tag: member.tag,
+                              role: member.role,
+                              reliabilityScore: scoreNum,
+                            });
+                          }}
+                          className="flex items-center gap-2 max-w-[140px] cursor-pointer hover:opacity-80 transition-opacity"
+                          title="Clic para entender por qué tiene este puntaje de confiabilidad"
+                        >
                           <ReliabilityBadge score={scoreNum} />
                           <div className="flex-1 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
                             <div
@@ -403,7 +387,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
                   <td className="py-3 px-4 sm:px-6 text-right">
                     {onGrantWarPass && (
                       <button
-                        onClick={() => onGrantWarPass(member)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onGrantWarPass(member);
+                        }}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-700 hover:border-amber-500/30 transition-all shadow-sm"
                         title="Otorgar Pase de Guerra"
                       >
@@ -418,6 +405,29 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
           </tbody>
         </table>
       </div>
+
+      {/* War History Modal */}
+      <PlayerWarHistoryModal
+        memberTag={selectedMemberTagForHistory}
+        isOpen={!!selectedMemberTagForHistory}
+        onClose={() => setSelectedMemberTagForHistory(null)}
+        onGrantWarPass={
+          onGrantWarPass
+            ? (tag) => {
+                const m = members.find((mem) => mem.tag === tag);
+                if (m) onGrantWarPass(m);
+              }
+            : undefined
+        }
+      />
+
+      {/* Reliability Explainer Modal */}
+      <ReliabilityModal
+        isOpen={!!reliabilityModalContext}
+        onClose={() => setReliabilityModalContext(null)}
+        member={reliabilityModalContext !== 'general' ? reliabilityModalContext : null}
+        onViewWarHistory={(tag) => setSelectedMemberTagForHistory(tag)}
+      />
     </div>
   );
 };

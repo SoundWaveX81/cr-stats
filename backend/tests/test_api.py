@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 
 from apps.clans.models import Clan, Member
 from apps.governance.models import RosterAction
+from apps.wars.models import RiverRace, WarAttackLog, WarDay
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
@@ -227,3 +228,88 @@ class TestRosterActionEndpoints:
         assert res_dismiss.data["action"]["status"] == "dismissed"
         action2.refresh_from_db()
         assert action2.status == "dismissed"
+
+
+@pytest.mark.django_db
+class TestMemberEndpoints:
+    def test_member_war_history_endpoint(self, auth_client, api_client):
+        clan = Clan.objects.create(tag="#2PP", name="Furia Roja")
+        member = Member.objects.create(
+            clan=clan,
+            tag="#M1",
+            name="Super Jugador",
+            role="elder",
+            reliability_score=100.0,
+            trophies=7500,
+        )
+
+        race = RiverRace.objects.create(
+            clan=clan,
+            season_id=120,
+            section_index=1,
+            state="clans_finished",
+        )
+        day1 = WarDay.objects.create(
+            river_race=race,
+            date=date.today() - timedelta(days=1),
+            day_index=4,
+            day_type="war",
+            is_closed=True,
+        )
+        day2 = WarDay.objects.create(
+            river_race=race,
+            date=date.today(),
+            day_index=5,
+            day_type="war",
+            is_closed=False,
+        )
+
+        WarAttackLog.objects.create(
+            war_day=day1,
+            member=member,
+            attacks_used=4,
+            medals_earned=800,
+            boat_attacks_count=0,
+        )
+        WarAttackLog.objects.create(
+            war_day=day2,
+            member=member,
+            attacks_used=2,
+            medals_earned=400,
+            boat_attacks_count=1,
+        )
+
+        # Unauthenticated request is allowed read-only
+        res_unauth = api_client.get("/api/members/%23M1/war-history/")
+        assert res_unauth.status_code == status.HTTP_200_OK
+
+        # Authenticated with encoded #
+        res = auth_client.get("/api/members/%23M1/war-history/")
+        assert res.status_code == status.HTTP_200_OK
+
+        # Authenticated without #
+        res_no_hash = auth_client.get("/api/members/M1/war-history/")
+        assert res_no_hash.status_code == status.HTTP_200_OK
+
+        data = res.data
+        assert data["member"]["tag"] == "#M1"
+        assert data["member"]["name"] == "Super Jugador"
+        assert data["member"]["trophies"] == 7500
+
+        # Summary
+        summary = data["summary"]
+        assert summary["races_analyzed"] == 1
+        assert summary["total_war_days"] == 2
+        assert summary["total_attacks_used"] == 6
+        assert summary["total_medals"] == 1200
+        assert summary["total_boat_attacks"] == 1
+
+        # Races
+        assert len(data["races"]) == 1
+        race_data = data["races"][0]
+        assert race_data["season_id"] == 120
+        assert race_data["section_index"] == 1
+        assert race_data["total_attacks"] == 6
+        assert len(race_data["days"]) == 2
+        assert race_data["days"][0]["attacks_used"] == 4
+        assert race_data["days"][1]["attacks_used"] == 2

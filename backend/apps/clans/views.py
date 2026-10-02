@@ -4,9 +4,9 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.response import Response
 
 from apps.ingestion.services import SyncClanService, SyncRiverRaceService
-from apps.wars.services import CurrentWarService
+from apps.wars.services import CurrentWarService, MemberWarHistoryService
 
-from .models import Clan, WarPass
+from .models import Clan, Member, WarPass
 from .serializers import ClanSerializer, MemberSerializer, WarPassSerializer
 
 
@@ -107,3 +107,27 @@ class WarPassViewSet(viewsets.ModelViewSet):
         if member_param:
             qs = qs.filter(member__tag=member_param)
         return qs
+
+
+class MemberViewSet(viewsets.ReadOnlyModelViewSet):
+    """API endpoint to view member details and historical war attendance."""
+
+    queryset = Member.objects.all()
+    serializer_class = MemberSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    lookup_value_regex = r"[^/]+"
+
+    def get_object(self):
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        val = self.kwargs.get(lookup_url_kwarg)
+        if val and not val.startswith("#"):
+            self.kwargs[lookup_url_kwarg] = f"#{val}"
+        return super().get_object()
+
+    @action(detail=True, methods=["get"], url_path="war-history")
+    def war_history(self, request, pk=None):
+        """Retrieve war attack history across the last 10 river races for this member."""
+        member = self.get_object()
+        service = MemberWarHistoryService()
+        data = service.get_member_war_history(member)
+        return Response(data, status=status.HTTP_200_OK)

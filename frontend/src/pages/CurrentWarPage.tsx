@@ -15,10 +15,14 @@ import {
   Shield,
   Loader2,
   TrendingUp,
+  History,
+  HelpCircle,
 } from 'lucide-react';
 import { clansApi } from '../api/client';
 import type { Clan, CurrentWarOverview, WarParticipant } from '../types/domain';
 import { RoleBadge } from '../components/common/Badge';
+import { PlayerWarHistoryModal } from '../components/clans/PlayerWarHistoryModal';
+import { ReliabilityModal, type ReliabilityMemberContext } from '../components/common/ReliabilityModal';
 
 export const CurrentWarPage: React.FC = () => {
   const { clanTag: urlClanTag } = useParams<{ clanTag?: string }>();
@@ -30,6 +34,8 @@ export const CurrentWarPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMemberTagForHistory, setSelectedMemberTagForHistory] = useState<string | null>(null);
+  const [reliabilityModalContext, setReliabilityModalContext] = useState<ReliabilityMemberContext | null | 'general'>(null);
 
   // Table filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -458,7 +464,21 @@ export const CurrentWarPage: React.FC = () => {
                 <th className="py-3.5 px-3">Rol</th>
                 <th className="py-3.5 px-3 text-center">Ataques Hoy</th>
                 <th className="py-3.5 px-3 text-center">Pendientes</th>
-                <th className="py-3.5 px-3 text-center">Confiabilidad</th>
+                <th className="py-3.5 px-3 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Confiabilidad</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReliabilityModalContext('general');
+                      }}
+                      className="text-slate-500 hover:text-amber-400 p-0.5 rounded transition-colors"
+                      title="¿Cómo se calcula la confiabilidad?"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </th>
                 <th className="py-3.5 px-3 text-right">Medallas Hoy</th>
                 <th className="py-3.5 px-3 text-center">Barcos</th>
                 <th className="py-3.5 px-3 text-center">Exención</th>
@@ -481,14 +501,26 @@ export const CurrentWarPage: React.FC = () => {
                   const isZero = p.attacks_used === 0;
 
                   return (
-                    <tr key={p.tag} className="hover:bg-slate-800/40 transition-colors group">
+                    <tr
+                      key={p.tag}
+                      onClick={() => setSelectedMemberTagForHistory(p.tag)}
+                      className="hover:bg-slate-800/40 transition-colors group cursor-pointer"
+                    >
                       {/* Name & Tag */}
                       <td className="py-3 px-4 sm:px-6">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-100 group-hover:text-amber-400 transition-colors">
-                            {p.name}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-100 group-hover:text-amber-400 transition-colors">
+                              {p.name}
+                            </span>
+                            <span className="font-mono text-[10px] text-slate-500">{p.tag}</span>
+                          </div>
+                          <span
+                            className="opacity-0 group-hover:opacity-100 text-amber-400 transition-opacity"
+                            title="Ver historial de 10 guerras"
+                          >
+                            <History className="w-3.5 h-3.5" />
                           </span>
-                          <span className="font-mono text-[10px] text-slate-500">{p.tag}</span>
                         </div>
                       </td>
 
@@ -526,7 +558,22 @@ export const CurrentWarPage: React.FC = () => {
                       {/* Reliability Score */}
                       <td className="py-3 px-3 text-center">
                         {p.reliability_score !== undefined ? (
-                          <div className="flex flex-col items-center">
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReliabilityModalContext({
+                                name: p.name,
+                                tag: p.tag,
+                                role: p.role,
+                                reliabilityScore: p.reliability_score ?? 100,
+                                attacksToday: p.attacks_used,
+                                hasWarPass: p.has_war_pass,
+                                warPassReason: p.war_pass_reason,
+                              });
+                            }}
+                            className="flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity"
+                            title="Clic para entender por qué tiene este puntaje de confiabilidad"
+                          >
                             <span
                               className={`font-mono font-bold text-xs ${
                                 p.reliability_score >= 80
@@ -584,13 +631,14 @@ export const CurrentWarPage: React.FC = () => {
                       {/* Actions */}
                       <td className="py-3 px-4 sm:px-6 text-right">
                         <button
-                          onClick={() =>
+                          onClick={(e) => {
+                            e.stopPropagation();
                             navigate(
                               `/war-passes?member=${encodeURIComponent(p.tag)}&clan=${encodeURIComponent(
                                 clan.tag
                               )}`
-                            )
-                          }
+                            );
+                          }}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-700 hover:border-amber-500/30 transition-all shadow-sm"
                           title="Otorgar Pase de Guerra"
                         >
@@ -606,6 +654,28 @@ export const CurrentWarPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* War History Modal */}
+      <PlayerWarHistoryModal
+        memberTag={selectedMemberTagForHistory}
+        isOpen={!!selectedMemberTagForHistory}
+        onClose={() => setSelectedMemberTagForHistory(null)}
+        onGrantWarPass={(tag) => {
+          navigate(
+            `/war-passes?member=${encodeURIComponent(tag)}&clan=${encodeURIComponent(
+              clan.tag
+            )}`
+          );
+        }}
+      />
+
+      {/* Reliability Explanatory Modal */}
+      <ReliabilityModal
+        isOpen={!!reliabilityModalContext}
+        onClose={() => setReliabilityModalContext(null)}
+        member={reliabilityModalContext !== 'general' ? reliabilityModalContext : null}
+        onViewWarHistory={(tag) => setSelectedMemberTagForHistory(tag)}
+      />
     </div>
   );
 };
