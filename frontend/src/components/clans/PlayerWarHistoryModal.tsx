@@ -7,11 +7,10 @@ import {
   Shield,
   AlertCircle,
   Loader2,
-  Calendar,
   Flame,
-  CheckCircle2,
   AlertTriangle,
   Ticket,
+  ShieldCheck,
 } from 'lucide-react';
 import { membersApi } from '../../api/client';
 import type { MemberWarHistoryResponse } from '../../types/domain';
@@ -158,11 +157,63 @@ export const PlayerWarHistoryModal: React.FC<PlayerWarHistoryModalProps> = ({
             <>
               {/* Summary KPIs */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                {/* Reliability / Attendance */}
+                {/* Clan Governance Reliability */}
                 <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between">
                   <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-1">
-                    <span>Confiabilidad</span>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Confiabilidad Clan</span>
+                    <ShieldCheck
+                      className={`w-3.5 h-3.5 ${
+                        historyData.member.reliability_score >= 80
+                          ? 'text-emerald-400'
+                          : historyData.member.reliability_score >= 50
+                          ? 'text-amber-400'
+                          : 'text-rose-400'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                      <span
+                        className={`text-2xl font-mono font-bold ${
+                          historyData.member.reliability_score >= 80
+                            ? 'text-emerald-400'
+                            : historyData.member.reliability_score >= 50
+                            ? 'text-amber-400'
+                            : 'text-rose-400'
+                        }`}
+                      >
+                        {historyData.member.reliability_score.toFixed(1)}%
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                          historyData.member.reliability_score >= 80
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : historyData.member.reliability_score >= 50
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                            : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                        }`}
+                      >
+                        {historyData.member.reliability_score >= 80
+                          ? 'Confiable'
+                          : historyData.member.reliability_score >= 50
+                          ? 'Irregular'
+                          : 'Riesgo'}
+                      </span>
+                    </div>
+                    <span
+                      className="text-[11px] text-slate-500 block mt-0.5"
+                      title="Métrica de gobernanza evaluada sobre las últimas 14 jornadas de guerra cerradas"
+                    >
+                      Últimas 14 jornadas
+                    </span>
+                  </div>
+                </div>
+
+                {/* Historical Attendance (10 Races) */}
+                <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-1">
+                    <span>Asistencia Histórica</span>
+                    <History className="w-3.5 h-3.5 text-blue-400" />
                   </div>
                   <div>
                     <div className="flex items-baseline gap-1.5">
@@ -179,23 +230,7 @@ export const PlayerWarHistoryModal: React.FC<PlayerWarHistoryModalProps> = ({
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 font-mono mt-0.5 block">
-                      {historyData.summary.total_attacks_used} / {historyData.summary.total_attacks_expected} ataques
-                    </span>
-                  </div>
-                </div>
-
-                {/* Races Analyzed */}
-                <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-1">
-                    <span>Carreras</span>
-                    <Calendar className="w-3.5 h-3.5 text-blue-400" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-mono font-bold text-slate-100">
-                      {historyData.summary.races_analyzed}
-                    </div>
-                    <span className="text-[11px] text-slate-500 block mt-0.5">
-                      {historyData.summary.total_war_days} días de guerra
+                      {historyData.summary.total_attacks_used} / {historyData.summary.total_attacks_expected} atq. ({historyData.summary.races_analyzed} carreras)
                     </span>
                   </div>
                 </div>

@@ -330,13 +330,14 @@ class MemberWarHistoryService:
                 )
 
                 if w_day.day_type == "war":
-                    total_war_days += 1
-                    total_attacks_used += log.attacks_used
                     total_medals += log.medals_earned
                     total_boat_attacks += log.boat_attacks_count
 
-                    if not has_pass and w_day.is_closed:
-                        total_attacks_expected += 4
+                    if w_day.is_closed:
+                        total_war_days += 1
+                        if not has_pass:
+                            total_attacks_expected += 4
+                            total_attacks_used += min(log.attacks_used, 4)
 
                 race_attacks_used += log.attacks_used
                 race_medals += log.medals_earned

@@ -299,8 +299,10 @@ class TestMemberEndpoints:
         # Summary
         summary = data["summary"]
         assert summary["races_analyzed"] == 1
-        assert summary["total_war_days"] == 2
-        assert summary["total_attacks_used"] == 6
+        assert summary["total_war_days"] == 1
+        assert summary["total_attacks_used"] == 4
+        assert summary["total_attacks_expected"] == 4
+        assert summary["attendance_rate"] == 100.0
         assert summary["total_medals"] == 1200
         assert summary["total_boat_attacks"] == 1
 
