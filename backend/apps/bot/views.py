@@ -42,7 +42,7 @@ def telegram_webhook_view(request):
         return JsonResponse({"status": "ignored", "reason": "Missing chat_id or text"})
 
     dispatcher = TelegramCommandDispatcher()
-    reply_text = dispatcher.dispatch(raw_text)
+    reply_text = dispatcher.dispatch(raw_text, chat_id=chat_id)
 
     if reply_text:
         client = TelegramClient()

@@ -16,3 +16,23 @@ $$\text{Confiabilidad (\%)} = \frac{\sum \min(\text{ataques\_usados}, 4)}{\text{
 
 ### Ingesta de Histórico de Carreras Fluviales (`riverracelog`)
 El servicio `SyncRiverRaceService.sync_race_history(clan)` consume el endpoint `/v1/clans/{tag}/riverracelog` de Supercell para registrar las últimas 10 semanas de River Races concluidas con sus 4 días de guerra por semana y mazos usados por cada participante.
+
+## Alertas Horarias y Canales de Notificación
+
+### Cronograma de Alertas (Celery Beat)
+- **Días:** Días de Guerra exclusivamente (Jueves a Domingo).
+- **Horas UTC:** `06:00, 07:00, 08:00, 09:00` y `10:00` (cierre de jornada).
+- **Sincronización:** Cada tarea corre `SyncRiverRaceService().sync(clan)` antes del reporte.
+- **Clasificación en Alerta:**
+  - 🚨 **Candidatos a Reemplazo:** $\text{ataques} = 0 \land \text{fiabilidad} < 50\%$.
+  - ⚠️ **Sin Ataques:** $\text{ataques} = 0 \land \text{fiabilidad} \ge 50\%$.
+  - ⏳ **En Progreso:** $1 \le \text{ataques} \le 3$.
+
+### Comandos de Prueba (Management Commands)
+```bash
+# Ping de conectividad en canales configurados
+python manage.py test_notifications [--provider telegram|discord_webhook]
+
+# Forzar envío de alerta real con datos actuales de guerra
+python manage.py test_notifications --send-pending [--clan TAG] [--provider telegram|discord_webhook]
+```

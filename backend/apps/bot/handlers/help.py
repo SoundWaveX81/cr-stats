@@ -11,7 +11,8 @@ def handle_help(_args: list[str]) -> str:
         "• <code>/sanciones [tag]</code> — Lista de acciones de roster pendientes generadas.\n"
         "• <code>/ejecutar &lt;id&gt;</code> — Marca una sanción como ejecutada en el juego.\n"
         "• <code>/descartar &lt;id&gt;</code> — Descarta una propuesta de sanción.\n\n"
-        "🛡️ <b>Exenciones Temporales:</b>\n"
-        "• <code>/exentar &lt;#tag&gt; &lt;dias&gt; &lt;motivo&gt;</code> — Otorga un Pase de Guerra.\n\n"
+        "🛡️ <b>Exenciones y Alertas:</b>\n"
+        "• <code>/exentar &lt;#tag&gt; &lt;dias&gt; &lt;motivo&gt;</code> — Otorga un Pase de Guerra.\n"
+        "• <code>/alertas [tag]</code> — Vincula este chat para recibir recordatorios automáticos de guerra.\n\n"
         "ℹ️ <i>Si omites el tag del clan, se usará el clan principal activo configurado.</i>"
     )

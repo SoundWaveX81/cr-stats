@@ -16,15 +16,25 @@ class ConsoleNotificationAdapter(BaseNotificationAdapter):
         self.config = config or {}
 
     def send_pending_attacks_alert(
-        self, clan: Clan, pending_items: list[PendingAttackItem], war_day_date: date
+        self,
+        clan: Clan,
+        pending_items: list[PendingAttackItem],
+        war_day_date: date,
+        hours_left: int = 0,
     ) -> bool:
-        lines = [f"[ALERTA ATAQUES PENDIENTES] {clan.name} ({war_day_date}):"]
+        countdown = f" (Cierre en {hours_left}h)" if hours_left > 0 else " (Cierre de jornada)"
+        lines = [f"[ALERTA ATAQUES PENDIENTES]{countdown} {clan.name} ({war_day_date}):"]
         for item in pending_items:
             lines.append(
                 f" - {item.member_name} ({item.member_tag}, {item.role}): "
-                f"{item.attacks_used}/4 usados ({item.remaining_attacks} restantes)"
+                f"{item.attacks_used}/4 usados ({item.remaining_attacks} restantes) | Fiab: {item.reliability_score:.1f}%"
             )
         msg = "\n".join(lines)
+        logger.info(msg)
+        return True
+
+    def send_all_attacks_completed_alert(self, clan: Clan, war_day_date: date) -> bool:
+        msg = f"[100% ASISTENCIA] {clan.name} ({war_day_date}): ¡Todos los miembros activos completaron sus 4 ataques de guerra!"
         logger.info(msg)
         return True
 
@@ -51,4 +61,10 @@ class ConsoleNotificationAdapter(BaseNotificationAdapter):
             )
         msg = "\n".join(lines)
         logger.info(msg)
+        return True
+
+    def send_test_message(self, clan: Clan) -> bool:
+        logger.info(
+            f"[CONSOLE TEST NOTIFICATION] Canal verificado para clan {clan.name} ({clan.tag})"
+        )
         return True

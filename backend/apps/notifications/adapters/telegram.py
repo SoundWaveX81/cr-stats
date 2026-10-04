@@ -3,6 +3,7 @@ import logging
 from datetime import date
 
 import httpx
+from django.conf import settings
 
 from apps.clans.models import Clan
 from apps.governance.models import RosterAction
@@ -17,7 +18,7 @@ class TelegramNotificationAdapter(BaseNotificationAdapter):
 
     def __init__(self, config: dict | None = None, timeout: float = 10.0):
         self.config = config or {}
-        self.bot_token = self.config.get("bot_token", "")
+        self.bot_token = self.config.get("bot_token") or getattr(settings, "TELEGRAM_BOT_TOKEN", "")
         self.chat_id = self.config.get("chat_id", "")
         self.timeout = timeout
 
@@ -45,25 +46,85 @@ class TelegramNotificationAdapter(BaseNotificationAdapter):
             logger.error(f"Network error calling Telegram API: {exc}")
             return False
 
+    ROLE_LABELS = {
+        "leader": "👑 Líder",
+        "coLeader": "⚔️ Colíder",
+        "elder": "🛡️ Veterano",
+        "member": "Miembro",
+    }
+
     def send_pending_attacks_alert(
-        self, clan: Clan, pending_items: list[PendingAttackItem], war_day_date: date
+        self,
+        clan: Clan,
+        pending_items: list[PendingAttackItem],
+        war_day_date: date,
+        hours_left: int = 0,
     ) -> bool:
         if not pending_items:
             return True
 
+        # Group items
+        high_risk = [item for item in pending_items if item.is_high_risk]
+        zero_attacks = [item for item in pending_items if item.is_zero_attacks]
+        in_progress = [item for item in pending_items if item.is_in_progress]
+
+        # Sort each group by lowest reliability first
+        high_risk.sort(key=lambda x: (x.reliability_score, 0 if x.role == "member" else 1))
+        zero_attacks.sort(key=lambda x: (x.reliability_score, 0 if x.role == "member" else 1))
+        in_progress.sort(key=lambda x: (x.attacks_used, x.reliability_score))
+
+        countdown_str = (
+            f"<b>{hours_left} hora{'s' if hours_left != 1 else ''}</b> (10:00 UTC)"
+            if hours_left > 0
+            else "<b>¡Cierre de jornada en curso!</b> (10:00 UTC)"
+        )
+
         lines = [
-            f"⚠️ <b>Recordatorio de Ataques de Guerra - {html.escape(clan.name)}</b>",
-            f"Jornada: <code>{war_day_date}</code>",
-            "¡Quedan pocas horas antes del reinicio a las 10:00 UTC!\n",
-            "<b>Miembros pendientes:</b>",
+            f"⚔️ <b>Recordatorio de Ataques de Guerra — {html.escape(clan.name)}</b>",
+            f"📅 Jornada: <code>{war_day_date}</code> | Faltan: <b>{len(pending_items)}</b> miembros",
+            f"⏰ <b>Cierre de jornada en:</b> {countdown_str}\n",
         ]
-        for item in pending_items:
-            lines.append(
-                f"• <b>{html.escape(item.member_name)}</b> ({item.role}): "
-                f"{item.attacks_used}/4 ataques (Faltan {item.remaining_attacks})"
-            )
+
+        if high_risk:
+            lines.append("🚨 <b>Candidatos a Reemplazo / Expulsión</b> (&lt; 50% fiabilidad):")
+            for item in high_risk:
+                role = self.ROLE_LABELS.get(item.role, item.role)
+                lines.append(
+                    f"• <b>{html.escape(item.member_name)}</b> ({role}) — <b>0/4</b> atq. | Fiab: <b>{item.reliability_score:.1f}%</b> [🚨 Riesgo]"
+                )
+            lines.append("")
+
+        if zero_attacks:
+            lines.append("⚠️ <b>Sin Ataques</b> (0/4 realizados):")
+            for item in zero_attacks:
+                role = self.ROLE_LABELS.get(item.role, item.role)
+                lines.append(
+                    f"• <b>{html.escape(item.member_name)}</b> ({role}) — <b>0/4</b> atq. | Fiab: <b>{item.reliability_score:.1f}%</b>"
+                )
+            lines.append("")
+
+        if in_progress:
+            lines.append("⏳ <b>Ataques En Progreso / Incompletos:</b>")
+            for item in in_progress:
+                role = self.ROLE_LABELS.get(item.role, item.role)
+                lines.append(
+                    f"• <b>{html.escape(item.member_name)}</b> ({role}) — Restan <b>{item.remaining_attacks}</b> ({item.attacks_used}/4) | Fiab: <b>{item.reliability_score:.1f}%</b>"
+                )
+            lines.append("")
+
+        lines.append(
+            "💡 <i>Consejo: Los miembros en 🚨 pueden ser sustituidos antes del cierre de las 10:00 UTC para dar cupo a nuevos jugadores.</i>"
+        )
 
         return self._send_message("\n".join(lines))
+
+    def send_all_attacks_completed_alert(self, clan: Clan, war_day_date: date) -> bool:
+        text = (
+            f"🎉 <b>¡100% de Asistencia Completado — {html.escape(clan.name)}!</b>\n\n"
+            f"📅 Jornada: <code>{war_day_date}</code> (10:00 UTC)\n"
+            f"¡Todos los miembros activos del clan han realizado sus 4 ataques de guerra hoy! Excelente compromiso y disciplina del equipo."
+        )
+        return self._send_message(text)
 
     def send_daily_roster_report(
         self, clan: Clan, actions: list[RosterAction], war_day_date: date
@@ -101,3 +162,12 @@ class TelegramNotificationAdapter(BaseNotificationAdapter):
             )
 
         return self._send_message("\n".join(lines))
+
+    def send_test_message(self, clan: Clan) -> bool:
+        text = (
+            f"🔔 <b>Prueba de Canal - CR-Total</b>\n\n"
+            f"Clan: <b>{html.escape(clan.name)}</b> (<code>{clan.tag}</code>)\n"
+            f"Estado: ✅ <b>Conexión establecida correctamente con Telegram.</b>\n\n"
+            f"Este canal está listo para recibir recordatorios de ataques y reportes de gobernanza."
+        )
+        return self._send_message(text)

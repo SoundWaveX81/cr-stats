@@ -15,6 +15,22 @@ class PendingAttackItem:
     role: str
     attacks_used: int
     remaining_attacks: int
+    reliability_score: float = 100.0
+
+    @property
+    def is_high_risk(self) -> bool:
+        """High risk: 0 attacks and reliability below 50%."""
+        return self.attacks_used == 0 and self.reliability_score < 50.0
+
+    @property
+    def is_zero_attacks(self) -> bool:
+        """Zero attacks with moderate/high reliability."""
+        return self.attacks_used == 0 and self.reliability_score >= 50.0
+
+    @property
+    def is_in_progress(self) -> bool:
+        """In progress: 1 to 3 attacks used."""
+        return 0 < self.attacks_used < 4
 
 
 class BaseNotificationAdapter(ABC):
@@ -22,9 +38,17 @@ class BaseNotificationAdapter(ABC):
 
     @abstractmethod
     def send_pending_attacks_alert(
-        self, clan: Clan, pending_items: list[PendingAttackItem], war_day_date: date
+        self,
+        clan: Clan,
+        pending_items: list[PendingAttackItem],
+        war_day_date: date,
+        hours_left: int = 0,
     ) -> bool:
         """Send reminder alert for members with pending attacks before day reset."""
+
+    @abstractmethod
+    def send_all_attacks_completed_alert(self, clan: Clan, war_day_date: date) -> bool:
+        """Send congratulatory notice when 100% of clan attacks are completed."""
 
     @abstractmethod
     def send_daily_roster_report(
@@ -35,3 +59,7 @@ class BaseNotificationAdapter(ABC):
     @abstractmethod
     def send_leadership_notice(self, clan: Clan, notices: list[RosterAction]) -> bool:
         """Send informational compliance notice directed to clan leaders."""
+
+    @abstractmethod
+    def send_test_message(self, clan: Clan) -> bool:
+        """Send a test notification message to verify channel connectivity."""

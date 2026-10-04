@@ -9,6 +9,7 @@ from discord.ext import commands
 from apps.clans.models import Clan, Member, WarPass
 from apps.governance.models import RosterAction
 from apps.ingestion.services import SyncClanService, SyncRiverRaceService
+from apps.notifications.models import NotificationChannel
 from apps.wars.models import WarAttackLog, WarDay
 from apps.wars.services import CurrentWarService
 
@@ -62,8 +63,11 @@ def create_discord_bot() -> commands.Bot:
             inline=False,
         )
         embed.add_field(
-            name="🛡️ Exenciones Temporales",
-            value="• `!exentar <#tag> <dias> <motivo>` — Otorga un Pase de Guerra.",
+            name="🛡️ Exenciones y Alertas",
+            value=(
+                "• `!exentar <#tag> <dias> <motivo>` — Otorga un Pase de Guerra.\n"
+                "• `!alertas [tag] [webhook_url]` — Vincula este canal para alertas de guerra."
+            ),
             inline=False,
         )
         embed.set_footer(text="Puedes usar el prefijo ! o / indiferentemente.")
@@ -459,6 +463,78 @@ def create_discord_bot() -> commands.Bot:
             inline=True,
         )
         embed.add_field(name="Motivo", value=war_pass.reason, inline=False)
+        await ctx.send(embed=embed)
+
+    @bot.command(name="alertas")
+    async def cmd_alertas(
+        ctx: commands.Context, tag: str | None = None, webhook_url: str | None = None
+    ):
+        """Link this Discord channel to receive automated war attack reminders."""
+
+        def _get_clan():
+            if tag and not tag.startswith("http"):
+                clean_tag = tag.strip().upper()
+                if not clean_tag.startswith("#"):
+                    clean_tag = f"#{clean_tag}"
+                return Clan.objects.filter(tag=clean_tag).first()
+            return Clan.objects.filter(is_active=True).first()
+
+        clan = await sync_to_async(_get_clan)()
+        if not clan:
+            await ctx.send("❌ No se encontró ningún clan activo registrado.")
+            return
+
+        final_webhook_url = (
+            webhook_url
+            if (webhook_url and webhook_url.startswith("http"))
+            else (tag if (tag and tag.startswith("http")) else None)
+        )
+
+        if not final_webhook_url and hasattr(ctx.channel, "create_webhook"):
+            try:
+                webhooks = await ctx.channel.webhooks()
+                existing = next((w for w in webhooks if w.name == "CR-Total Alertas"), None)
+                if existing:
+                    final_webhook_url = existing.url
+                else:
+                    created_wh = await ctx.channel.create_webhook(name="CR-Total Alertas")
+                    final_webhook_url = created_wh.url
+            except Exception as exc:
+                logger.warning(f"Could not auto-create Discord webhook: {exc}")
+
+        if not final_webhook_url:
+            await ctx.send(
+                "❌ No se pudo crear automáticamente un Webhook en este canal (revisa los permisos del bot).\n"
+                "Puedes crearlo manualmente en *Ajustes del canal > Integraciones > Webhooks* y ejecutar:\n"
+                "`!alertas [tag_clan] <url_del_webhook>`"
+            )
+            return
+
+        def _save_channel():
+            _ch, is_new = NotificationChannel.objects.update_or_create(
+                clan=clan,
+                provider="discord_webhook",
+                defaults={"config": {"webhook_url": final_webhook_url}, "is_active": True},
+            )
+            return is_new
+
+        is_created = await sync_to_async(_save_channel)()
+        action_word = "vinculado exitosamente" if is_created else "actualizado"
+
+        embed = discord.Embed(
+            title="✅ Canal de Alertas de Guerra Vinculado",
+            description=(
+                f"Este canal ha sido {action_word} para recibir los recordatorios automáticos del clan "
+                f"**{clan.name}** (`{clan.tag}`).\n\n"
+                f"⏰ **Horarios de envío (Jueves a Domingo):**\n"
+                f"• 06:00 UTC (quedan 4 horas)\n"
+                f"• 07:00 UTC (quedan 3 horas)\n"
+                f"• 08:00 UTC (quedan 2 horas)\n"
+                f"• 09:00 UTC (queda 1 hora)\n"
+                f"• 10:00 UTC (cierre de jornada / confirmación final)"
+            ),
+            color=0x2ECC71,
+        )
         await ctx.send(embed=embed)
 
     return bot

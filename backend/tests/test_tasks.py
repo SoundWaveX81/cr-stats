@@ -82,18 +82,53 @@ class TestCeleryTasks:
             medals_earned=400,
         )
 
-        with patch(
-            "apps.ingestion.tasks.NotificationDispatcher.dispatch_pending_attacks"
-        ) as mock_dispatch:
+        with (
+            patch("apps.ingestion.tasks.SyncRiverRaceService.sync"),
+            patch(
+                "apps.ingestion.tasks.NotificationDispatcher.dispatch_pending_attacks"
+            ) as mock_dispatch,
+        ):
             summary = task_send_pending_attack_reminders.apply().get()
 
             assert summary.get("#2PP") == 1
             mock_dispatch.assert_called_once()
-            args, _ = mock_dispatch.call_args
+            args, kwargs = mock_dispatch.call_args
             pending_items = args[1]
             assert len(pending_items) == 1
             assert pending_items[0].member_tag == "#M1"
             assert pending_items[0].remaining_attacks == 2
+            assert pending_items[0].reliability_score == 100.0
+            assert "hours_left" in kwargs
+
+    def test_task_send_pending_attack_reminders_all_completed(self):
+        from datetime import datetime
+        from datetime import timezone as dt_timezone
+
+        clan = Clan.objects.create(tag="#ALL", name="Full Clan")
+        m1 = Member.objects.create(clan=clan, tag="#M1", name="Player 1", role="member")
+        today = date.today()
+        race = RiverRace.objects.create(clan=clan, season_id=2026, section_index=1)
+        war_day = WarDay.objects.create(
+            river_race=race, day_type="war", day_index=1, date=today, is_closed=False
+        )
+        WarAttackLog.objects.create(war_day=war_day, member=m1, attacks_used=4, medals_earned=900)
+
+        with (
+            patch("apps.ingestion.tasks.SyncRiverRaceService.sync"),
+            patch(
+                "apps.ingestion.tasks.NotificationDispatcher.dispatch_all_attacks_completed"
+            ) as mock_comp,
+            patch(
+                "apps.ingestion.tasks.NotificationDispatcher.dispatch_pending_attacks"
+            ) as mock_pend,
+        ):
+            with patch("apps.ingestion.tasks.datetime") as mock_dt:
+                mock_dt.now.return_value = datetime(2026, 10, 4, 10, 0, tzinfo=dt_timezone.utc)
+                mock_dt.combine = datetime.combine
+                summary = task_send_pending_attack_reminders.apply().get()
+                assert summary.get("#ALL") == 0
+                mock_comp.assert_called_once()
+                mock_pend.assert_not_called()
 
     def test_task_evaluate_war_day_governance(self):
         clan = Clan.objects.create(tag="#2PP", name="Furia Roja")

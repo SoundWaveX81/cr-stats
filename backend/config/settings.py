@@ -161,9 +161,9 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.ingestion.tasks.task_sync_clan_data",
         "schedule": crontab(minute=0),
     },
-    "send-pending-attack-reminders-daily": {
+    "send-pending-attack-reminders-hourly": {
         "task": "apps.ingestion.tasks.task_send_pending_attack_reminders",
-        "schedule": crontab(hour=8, minute=0),
+        "schedule": crontab(minute=0, hour="6,7,8,9,10", day_of_week="4,5,6,0"),
     },
     "evaluate-war-day-governance-daily": {
         "task": "apps.governance.tasks.task_evaluate_war_day_governance",
@@ -179,3 +179,9 @@ CLASH_ROYALE_BASE_URL = env("CLASH_ROYALE_BASE_URL", default="https://api.clashr
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_BOT_SECRET_TOKEN = env("TELEGRAM_BOT_SECRET_TOKEN", default="")
 DISCORD_BOT_TOKEN = env("DISCORD_BOT_TOKEN", default="")
+DEFAULT_TELEGRAM_CHAT_ID = env(
+    "DEFAULT_TELEGRAM_CHAT_ID", default=env("TELEGRAM_CHAT_ID", default="")
+)
+DEFAULT_DISCORD_WEBHOOK_URL = env(
+    "DEFAULT_DISCORD_WEBHOOK_URL", default=env("DISCORD_WEBHOOK_URL", default="")
+)

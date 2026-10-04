@@ -1,5 +1,6 @@
 import logging
-from datetime import date
+from datetime import date, datetime, time
+from datetime import timezone as dt_timezone
 
 from celery import shared_task
 
@@ -60,8 +61,10 @@ def task_sync_river_race_history(clan_tag: str | None = None) -> int:
 
 
 @shared_task(name="apps.ingestion.tasks.task_send_pending_attack_reminders")
-def task_send_pending_attack_reminders(clan_tag: str | None = None) -> dict[str, int]:
-    """Send reminder alerts to active clan members who have pending war attacks."""
+def task_send_pending_attack_reminders(
+    clan_tag: str | None = None, force: bool = False
+) -> dict[str, int]:
+    """Send reminder alerts to active clan members who have pending war attacks before 10:00 UTC."""
     clans = (
         Clan.objects.filter(tag=clan_tag, is_active=True)
         if clan_tag
@@ -69,9 +72,23 @@ def task_send_pending_attack_reminders(clan_tag: str | None = None) -> dict[str,
     )
     today = date.today()
     dispatcher = NotificationDispatcher()
+    sync_race_service = SyncRiverRaceService()
     summary = {}
 
+    now_utc = datetime.now(dt_timezone.utc)
+    today_reset = datetime.combine(now_utc.date(), time(10, 0), tzinfo=dt_timezone.utc)
+    if now_utc >= today_reset:
+        hours_left = 0
+    else:
+        hours_left = max(0, int((today_reset - now_utc).total_seconds() // 3600))
+
     for clan in clans:
+        # Sync live war data from Clash Royale API to prevent false reminders
+        try:
+            sync_race_service.sync(clan)
+        except Exception as exc:
+            logger.warning(f"Could not live sync clan {clan.tag} before reminders: {exc}")
+
         # Find today's open war day
         open_war_day = WarDay.objects.filter(
             river_race__clan=clan,
@@ -79,6 +96,13 @@ def task_send_pending_attack_reminders(clan_tag: str | None = None) -> dict[str,
             is_closed=False,
             date=today,
         ).first()
+
+        if not open_war_day and force:
+            open_war_day = (
+                WarDay.objects.filter(river_race__clan=clan, day_type="war")
+                .order_by("-date")
+                .first()
+            )
 
         if not open_war_day:
             continue
@@ -108,11 +132,23 @@ def task_send_pending_attack_reminders(clan_tag: str | None = None) -> dict[str,
                         role=member.role,
                         attacks_used=used,
                         remaining_attacks=4 - used,
+                        reliability_score=float(member.reliability_score),
                     )
                 )
 
         if pending_items:
-            dispatcher.dispatch_pending_attacks(clan, pending_items, open_war_day.date)
+            dispatcher.dispatch_pending_attacks(
+                clan, pending_items, open_war_day.date, hours_left=hours_left
+            )
             summary[clan.tag] = len(pending_items)
+        else:
+            # If 0 pending: send congratulatory alert at day close (10:00 UTC), silence during intermediate hours
+            if force or hours_left == 0 or now_utc.hour == 10:
+                dispatcher.dispatch_all_attacks_completed(clan, open_war_day.date)
+            else:
+                logger.info(
+                    f"All members of clan {clan.name} completed attacks. Silencing reminder ({hours_left}h left)."
+                )
+            summary[clan.tag] = 0
 
     return summary

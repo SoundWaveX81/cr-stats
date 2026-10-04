@@ -18,5 +18,6 @@ def test_discord_bot_registered_commands():
         "descartar",
         "exentar",
         "sincronizar",
+        "alertas",
     }
     assert expected_commands.issubset(command_names)

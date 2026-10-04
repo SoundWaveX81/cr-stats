@@ -1,5 +1,6 @@
 import logging
 
+from .handlers.alertas import handle_alertas
 from .handlers.governance import handle_descartar, handle_ejecutar, handle_sanciones
 from .handlers.help import handle_help
 from .handlers.pending import handle_pending
@@ -27,9 +28,10 @@ class TelegramCommandDispatcher:
         "/ejecutar": handle_ejecutar,
         "/descartar": handle_descartar,
         "/exentar": handle_exentar,
+        "/alertas": handle_alertas,
     }
 
-    def dispatch(self, raw_text: str) -> str:
+    def dispatch(self, raw_text: str, chat_id: int | str | None = None) -> str:
         """Parse raw command text and route to the matching handler."""
         if not raw_text or not raw_text.strip():
             return ""
@@ -52,6 +54,8 @@ class TelegramCommandDispatcher:
             return ""
 
         try:
+            if cmd == "/alertas":
+                return handler(args, chat_id=chat_id)
             return handler(args)
         except Exception as exc:
             logger.exception(f"Error executing command '{cmd}': {exc}")

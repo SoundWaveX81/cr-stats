@@ -79,6 +79,30 @@ class TestDiscordWebhookNotificationAdapter:
         assert "Pekka Fuerte" in payload
         assert "Mago Eléctrico" in payload
 
+        # Test with high risk item and countdown
+        high_risk_item = PendingAttackItem(
+            member_tag="#HR",
+            member_name="Riesgo Man",
+            role="member",
+            attacks_used=0,
+            remaining_attacks=4,
+            reliability_score=35.0,
+        )
+        assert (
+            adapter.send_pending_attacks_alert(
+                sample_clan, [high_risk_item], date(2026, 9, 30), hours_left=3
+            )
+            is True
+        )
+        payload_hr = route.calls.last.request.read().decode("utf-8")
+        assert "Candidatos a Reemplazo" in payload_hr
+        assert "3 horas" in payload_hr
+
+        # Test all attacks completed
+        assert adapter.send_all_attacks_completed_alert(sample_clan, date(2026, 9, 30)) is True
+        payload_comp = route.calls.last.request.read().decode("utf-8")
+        assert "100% de Asistencia Completado" in payload_comp
+
     @respx.mock
     def test_discord_daily_report_with_kicks(self, sample_clan):
         webhook_url = "https://discord.com/api/webhooks/test/123"
@@ -124,6 +148,11 @@ class TestTelegramNotificationAdapter:
         call_json = route.calls.last.request.read().decode("utf-8")
         assert "-100123456789" in call_json
         assert "Recordatorio de Ataques de Guerra" in call_json
+
+        # Test all attacks completed
+        assert adapter.send_all_attacks_completed_alert(sample_clan, date(2026, 9, 30)) is True
+        call_comp = route.calls.last.request.read().decode("utf-8")
+        assert "100% de Asistencia Completado" in call_comp
 
 
 @pytest.mark.django_db
@@ -182,3 +211,35 @@ class TestNotificationDispatcher:
         # El canal con error falla pero el canal de consola procesa con éxito
         assert results[ch_broken.id] is False
         assert results[ch_console.id] is True
+
+    @respx.mock
+    def test_send_test_message_methods(self, sample_clan):
+        discord_url = "https://discord.com/api/webhooks/test/testmsg"
+        telegram_url = "https://api.telegram.org/botTOKEN:TEST/sendMessage"
+
+        respx.post(discord_url).mock(return_value=httpx.Response(204))
+        respx.post(telegram_url).mock(return_value=httpx.Response(200, json={"ok": True}))
+
+        console_adapter = ConsoleNotificationAdapter()
+        assert console_adapter.send_test_message(sample_clan) is True
+
+        discord_adapter = DiscordWebhookNotificationAdapter({"webhook_url": discord_url})
+        assert discord_adapter.send_test_message(sample_clan) is True
+
+        telegram_adapter = TelegramNotificationAdapter(
+            {"bot_token": "TOKEN:TEST", "chat_id": "9999"}
+        )
+        assert telegram_adapter.send_test_message(sample_clan) is True
+
+    @respx.mock
+    def test_management_command_test_notifications(self, sample_clan):
+        from django.core.management import call_command
+
+        discord_url = "https://discord.com/api/webhooks/test/cmd"
+        respx.post(discord_url).mock(return_value=httpx.Response(204))
+
+        NotificationChannel.objects.create(
+            clan=sample_clan, provider="discord_webhook", config={"webhook_url": discord_url}
+        )
+
+        call_command("test_notifications", clan=sample_clan.tag)

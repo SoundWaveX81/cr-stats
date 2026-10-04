@@ -167,6 +167,19 @@ class TestBotCommands:
         assert "Furia Roja" in reply
         assert Clan.objects.filter(tag="#2PP").exists()
 
+    def test_cmd_alertas(self, sample_clan):
+        from apps.notifications.models import NotificationChannel
+
+        dispatcher = TelegramCommandDispatcher()
+        reply = dispatcher.dispatch("/alertas #2PP", chat_id="-100987654321")
+        assert "Canal de Alertas Configurado" in reply
+        assert "-100987654321" in reply
+        assert "Furia Roja" in reply
+
+        ch = NotificationChannel.objects.get(clan=sample_clan, provider="telegram")
+        assert ch.config["chat_id"] == "-100987654321"
+        assert ch.is_active is True
+
     def test_unknown_command(self):
         dispatcher = TelegramCommandDispatcher()
         reply = dispatcher.dispatch("/inventado")

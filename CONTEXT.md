@@ -103,5 +103,80 @@ Canal de mensajería (en Discord o Telegram) configurado para recibir alertas au
 _Avoid_: Chat room, canal de alertas
 
 **Comando de Bot (Bot Command)**:
-Instrucción interactiva ejecutada por líderes o miembros en Discord o Telegram (ej. `/exentar`, `/estado`, `/vincular`).
+Instrucción interactiva ejecutada por líderes o miembros en Discord o Telegram (ej. `/exentar`, `/estado`, `/alertas`).
 _Avoid_: Slash command exclusivo, trigger
+
+---
+
+## Estrategia de Alertas de Ataques Pendientes y Reglas de Clasificación
+
+### 1. Cronograma y Disparador de Alertas
+Las alertas horarias automáticas operan bajo las siguientes directrices:
+- **Días Activos:** Exclusivamente **Días de Guerra** (Jueves, Viernes, Sábado y Domingo; `day_of_week='4,5,6,0'`). Los días de entrenamiento están exentos de alertas de ataques pendientes.
+- **Ventana Horaria de Ejecución (UTC):**
+  - `06:00 UTC`: 4 horas antes del cierre.
+  - `07:00 UTC`: 3 horas antes del cierre.
+  - `08:00 UTC`: 2 horas antes del cierre.
+  - `09:00 UTC`: 1 hora antes del cierre.
+  - `10:00 UTC`: Cierre formal de la jornada de guerra.
+- **Sincronización en Vivo Obligatoria:** Inmediatamente antes de evaluar los miembros en cada ejecución programada, el servicio `SyncRiverRaceService().sync(clan)` consulta la API oficial de Supercell para garantizar datos en tiempo real y evitar falsos positivos de miembros que acaban de atacar.
+
+### 2. Comportamiento ante Cumplimiento Total (0 Pendientes)
+- **Horarios Intermedios (06:00 a 09:00 UTC):** Si todos los miembros activos completaron sus 4 ataques, el sistema opera en **modo silencio** (no emite mensajes para evitar spam).
+- **Cierre de Jornada (10:00 UTC):** Si se registra un 100% de cumplimiento en los ataques, se envía un mensaje de felicitación y reconocimiento de asistencia perfecta a los canales vinculados.
+
+### 3. Reglas Matemáticas de Clasificación de Miembros en la Alerta
+Cada miembro activo sin `WarPass` vigente que tenga menos de 4 ataques usados en la jornada es clasificado en una de las siguientes tres categorías mutuamente excluyentes:
+
+$$\text{Categoría} = \begin{cases}
+\text{🚨 Candidato a Reemplazo / Expulsión} & \text{si } \text{attacks\_used} = 0 \land \text{reliability\_score} < 50.0\% \\
+\text{⚠️ Sin Ataques} & \text{si } \text{attacks\_used} = 0 \land \text{reliability\_score} \ge 50.0\% \\
+\text{⏳ En Progreso / Incompleto} & \text{si } 1 \le \text{attacks\_used} \le 3
+\end{cases}$$
+
+#### Racionalidad Operativa de las Categorías:
+1. **🚨 Candidatos a Reemplazo / Expulsión ($\text{attacks} = 0 \land \text{fiabilidad} < 50\%$):**
+   - Miembros con alta probabilidad de inasistencia basados en su historial reciente deficiente.
+   - *Decisión para el Liderazgo:* Identificar a estos jugadores horas antes del cierre para expulsarlos a tiempo y dar cupo a nuevos miembros que sí ejecuten ataques en la jornada.
+2. **⚠️ Sin Ataques ($\text{attacks} = 0 \land \text{fiabilidad} \ge 50\%$):**
+   - Jugadores habitualmente cumplidores que aún no han ingresado en el día; requieren un recordatorio estándar sin urgencia de expulsión inmediata.
+3. **⏳ En Progreso ($1 \le \text{attacks} \le 3$):**
+   - Jugadores activos que ya iniciaron sus ataques pero aún tienen pendientes por gastar.
+
+---
+
+## Configuración y Pruebas de Canales de Notificación
+
+### 1. Métodos de Vinculación de Canales
+- **Telegram:**
+  - Comando en el grupo: `/alertas [clan_tag]` (ej: `/alertas #P8CCG2UJ`). Registra automáticamente el `chat_id`.
+  - Django Admin: Proveedor `telegram` con configuración JSON `{"chat_id": "-1001234567890"}`. El `bot_token` se hereda del entorno si no se define en el JSON.
+- **Discord:**
+  - Comando en el canal: `!alertas [clan_tag]` (crea el webhook automáticamente si el bot tiene permisos) o `!alertas [clan_tag] [webhook_url]`.
+  - Django Admin: Proveedor `discord_webhook` con configuración JSON `{"webhook_url": "https://discord.com/api/webhooks/..."}`.
+- **Consola / Logs:** Proveedor `console` con JSON `{}` para depuración en entornos locales o de testing.
+
+### 2. Comandos para Enviar y Forzar Pruebas
+
+#### Desde Django Admin:
+En la sección **Canales de Notificación** (`/admin/notifications/notificationchannel/`):
+1. Seleccionar los canales deseados mediante sus casillas de verificación.
+2. Elegir en el menú de acciones:
+   - **`🔔 Enviar mensaje de prueba a los canales seleccionados`**: Verifica la conectividad del webhook o bot emitiendo un mensaje de bienvenida.
+   - **`⚠️ Forzar envío de alerta de ataques pendientes ahora`**: Ejecuta la sincronización en vivo y despacha el reporte real con los miembros pendientes clasificados según las fórmulas matemáticas.
+
+#### Desde la Terminal (CLI / Docker):
+```bash
+# 1. Enviar mensaje de prueba a todos los canales activos
+docker compose exec api python manage.py test_notifications
+
+# 2. Probar conectividad filtrando por proveedor específico
+docker compose exec api python manage.py test_notifications --provider telegram
+docker compose exec api python manage.py test_notifications --provider discord_webhook
+
+# 3. Forzar el envío de la alerta real de ataques pendientes (bypasseando restricciones de horario)
+docker compose exec api python manage.py test_notifications --send-pending
+
+# 4. Forzar alerta real para un clan y proveedor específico
+docker compose exec api python manage.py test_notifications --clan #P8CCG2UJ --provider telegram --send-pending
+```

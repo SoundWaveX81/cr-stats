@@ -1,5 +1,5 @@
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 
 import httpx
 
@@ -41,27 +41,111 @@ class DiscordWebhookNotificationAdapter(BaseNotificationAdapter):
             logger.error(f"Network error sending Discord webhook: {exc}")
             return False
 
+    ROLE_LABELS = {
+        "leader": "👑 Líder",
+        "coLeader": "⚔️ Colíder",
+        "elder": "🛡️ Veterano",
+        "member": "Miembro",
+    }
+
     def send_pending_attacks_alert(
-        self, clan: Clan, pending_items: list[PendingAttackItem], war_day_date: date
+        self,
+        clan: Clan,
+        pending_items: list[PendingAttackItem],
+        war_day_date: date,
+        hours_left: int = 0,
     ) -> bool:
         if not pending_items:
             return True
 
+        # Group items
+        high_risk = [item for item in pending_items if item.is_high_risk]
+        zero_attacks = [item for item in pending_items if item.is_zero_attacks]
+        in_progress = [item for item in pending_items if item.is_in_progress]
+
+        # Sort each group by lowest reliability first
+        high_risk.sort(key=lambda x: (x.reliability_score, 0 if x.role == "member" else 1))
+        zero_attacks.sort(key=lambda x: (x.reliability_score, 0 if x.role == "member" else 1))
+        in_progress.sort(key=lambda x: (x.attacks_used, x.reliability_score))
+
+        # Color based on severity
+        if high_risk:
+            embed_color = COLOR_RED
+        elif zero_attacks:
+            embed_color = COLOR_ORANGE
+        else:
+            embed_color = COLOR_YELLOW
+
+        countdown_str = (
+            f"**{hours_left} hora{'s' if hours_left != 1 else ''}** (10:00 UTC)"
+            if hours_left > 0
+            else "**¡Cierre de jornada en curso!** (10:00 UTC)"
+        )
+
         fields = []
-        for item in pending_items[:25]:  # Discord limit: max 25 fields
+
+        if high_risk:
+            val_lines = [
+                f"• **{item.member_name}** ({self.ROLE_LABELS.get(item.role, item.role)}) — **0/4** | Fiab: **{item.reliability_score:.1f}%**"
+                for item in high_risk
+            ]
             fields.append(
                 {
-                    "name": f"{item.member_name} ({item.role})",
-                    "value": f"Ataques realizados: **{item.attacks_used}/4** (Faltan {item.remaining_attacks})",
-                    "inline": True,
+                    "name": f"🚨 Candidatos a Reemplazo / Expulsión ({len(high_risk)})",
+                    "value": "\n".join(val_lines)[:1024],
+                    "inline": False,
+                }
+            )
+
+        if zero_attacks:
+            val_lines = [
+                f"• **{item.member_name}** ({self.ROLE_LABELS.get(item.role, item.role)}) — **0/4** | Fiab: **{item.reliability_score:.1f}%**"
+                for item in zero_attacks
+            ]
+            fields.append(
+                {
+                    "name": f"⚠️ Sin Ataques ({len(zero_attacks)})",
+                    "value": "\n".join(val_lines)[:1024],
+                    "inline": False,
+                }
+            )
+
+        if in_progress:
+            val_lines = [
+                f"• **{item.member_name}** ({self.ROLE_LABELS.get(item.role, item.role)}) — Faltan **{item.remaining_attacks}** ({item.attacks_used}/4) | Fiab: **{item.reliability_score:.1f}%**"
+                for item in in_progress
+            ]
+            fields.append(
+                {
+                    "name": f"⏳ En Progreso / Incompletos ({len(in_progress)})",
+                    "value": "\n".join(val_lines)[:1024],
+                    "inline": False,
                 }
             )
 
         embed = {
-            "title": f"⚠️ Recordatorio: Ataques Pendientes - {clan.name}",
-            "description": f"Jornada del **{war_day_date}**. ¡Quedan pocas horas antes del reinicio a las 10:00 UTC!",
-            "color": COLOR_YELLOW,
+            "title": f"⚔️ Recordatorio: Ataques Pendientes de Guerra — {clan.name}",
+            "description": (
+                f"📅 Jornada: **{war_day_date}** | Faltan **{len(pending_items)}** miembros\n"
+                f"⏰ **Cierre de jornada en:** {countdown_str}"
+            ),
+            "color": embed_color,
             "fields": fields,
+            "footer": {
+                "text": "Prioridad: Miembros en 🚨 pueden ser sustituidos antes del cierre de las 10:00 UTC"
+            },
+        }
+        return self._send_payload({"embeds": [embed]})
+
+    def send_all_attacks_completed_alert(self, clan: Clan, war_day_date: date) -> bool:
+        embed = {
+            "title": f"🎉 ¡100% de Asistencia Completado — {clan.name}!",
+            "description": (
+                f"📅 Jornada del **{war_day_date}** (10:00 UTC).\n\n"
+                "¡Todos los miembros activos del clan han realizado sus 4 ataques de guerra hoy!\n"
+                "Excelente compromiso y disciplina del equipo."
+            ),
+            "color": COLOR_GREEN,
             "footer": {"text": "Clan War Governance System"},
         }
         return self._send_payload({"embeds": [embed]})
@@ -125,5 +209,20 @@ class DiscordWebhookNotificationAdapter(BaseNotificationAdapter):
             "color": COLOR_ORANGE,
             "fields": fields,
             "footer": {"text": "Clan War Governance System"},
+        }
+        return self._send_payload({"embeds": [embed]})
+
+    def send_test_message(self, clan: Clan) -> bool:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        embed = {
+            "title": "🔔 Prueba de Canal - CR-Total",
+            "description": (
+                f"**Clan:** {clan.name} (`{clan.tag}`)\n"
+                f"**Estado:** ✅ **Conexión establecida correctamente con Discord.**\n\n"
+                f"Este canal está listo para recibir recordatorios de ataques y reportes de gobernanza."
+            ),
+            "color": COLOR_GREEN,
+            "timestamp": now_iso,
+            "footer": {"text": "CR-Total • Test de Integración"},
         }
         return self._send_payload({"embeds": [embed]})
