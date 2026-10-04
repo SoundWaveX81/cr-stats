@@ -7,7 +7,7 @@ Backend API and domain services for Clan War Management, built with Django 5, DR
 ### Confiabilidad de Asistencia (`reliability_score`)
 Mide el porcentaje histórico de cumplimiento de ataques en Días de Guerra concluidos (`is_closed=True`) a lo largo de las últimas 14 jornadas evaluadas:
 
-$$\text{Confiabilidad (\%)} = \frac{\sum \min(\text{ataques\_usados}, 4)}{\text{días\_esperados} \times 4} \times 100$$
+$$\text{Confiabilidad (\%)} = \frac{\sum \min(\text{ataques}, 4)}{\text{días esperados} \times 4} \times 100$$
 
 - **Jornadas cerradas exclusivamente:** Las jornadas abiertas en curso no penalizan el score histórico.
 - **Pases de Guerra:** Las jornadas con licencia aprobada se excluyen del cómputo.
@@ -24,9 +24,9 @@ El servicio `SyncRiverRaceService.sync_race_history(clan)` consume el endpoint `
 - **Horas UTC:** `06:00, 07:00, 08:00, 09:00` y `10:00` (cierre de jornada).
 - **Sincronización:** Cada tarea corre `SyncRiverRaceService().sync(clan)` antes del reporte.
 - **Clasificación en Alerta:**
-  - 🚨 **Candidatos a Reemplazo:** $\text{ataques} = 0 \land \text{fiabilidad} < 50\%$.
-  - ⚠️ **Sin Ataques:** $\text{ataques} = 0 \land \text{fiabilidad} \ge 50\%$.
-  - ⏳ **En Progreso:** $1 \le \text{ataques} \le 3$.
+  - 🚨 **Candidatos a Reemplazo:** `ataques == 0` y `fiabilidad < 50%`.
+  - ⚠️ **Sin Ataques:** `ataques == 0` y `fiabilidad >= 50%`.
+  - ⏳ **En Progreso:** `1 <= ataques <= 3`.
 
 ### Comandos de Prueba (Management Commands)
 ```bash

@@ -47,11 +47,11 @@ El sistema ejecuta recordatorios automáticos de ataques pendientes para permiti
 ### 1. Clasificación de Miembros en la Alerta
 Dentro de cada notificación, los jugadores con ataques pendientes se ordenan y clasifican en tres secciones bien diferenciadas:
 
-| Categoría | Condición Matemática | Objetivo Táctico |
+| Categoría | Condición Lógica | Objetivo Táctico |
 | :--- | :--- | :--- |
-| 🚨 **Candidatos a Reemplazo** | $\text{ataques\_usados} = 0 \land \text{fiabilidad} < 50.0\%$ | Jugadores de alto riesgo de faltar hoy con mal historial. Prioridad para expulsar antes de las 10:00 UTC y meter refuerzos. |
-| ⚠️ **Sin Ataques** | $\text{ataques\_usados} = 0 \land \text{fiabilidad} \ge 50.0\%$ | Miembros habitualmente comprometidos que aún no han atacado. |
-| ⏳ **En Progreso** | $1 \le \text{ataques\_usados} \le 3$ | Miembros activos que ya comenzaron y les restan de 1 a 3 ataques. |
+| 🚨 **Candidatos a Reemplazo** | `ataques == 0` y `fiabilidad < 50.0%` | Jugadores de alto riesgo de faltar hoy con mal historial. Prioridad para expulsar antes de las 10:00 UTC y meter refuerzos. |
+| ⚠️ **Sin Ataques** | `ataques == 0` y `fiabilidad >= 50.0%` | Miembros habitualmente comprometidos que aún no han atacado. |
+| ⏳ **En Progreso** | `1 <= ataques <= 3` | Miembros activos que ya comenzaron y les restan de 1 a 3 ataques. |
 
 ---
 
@@ -59,8 +59,8 @@ Dentro de cada notificación, los jugadores con ataques pendientes se ordenan y 
 La confiabilidad evalúa el porcentaje de asistencia en Días de Guerra concluidos:
 
 $$\text{Confiabilidad (\%)} = \begin{cases}
-100.00 & \text{si } D = \emptyset \\
-\operatorname{round}\left(\frac{\sum_{d \in D} \min(\text{ataques\_usados}_d,\, 4)}{4 \times |D|} \times 100,\, 2\right) & \text{si } |D| > 0
+100.00 & \text{si } |D| = 0 \\
+\operatorname{round}\left(\frac{\sum_{d \in D} \min(\text{ataques}_d,\, 4)}{4 \times |D|} \times 100,\, 2\right) & \text{si } |D| > 0
 \end{cases}$$
 
 Donde:
@@ -80,7 +80,7 @@ Al cerrar cada jornada de guerra (10:00 UTC), se generan recomendaciones automá
    * Rol actual: `member`.
    * Cumplimiento perfecto: $16 / 16$ ataques en la River Race semanal.
    * Rendimiento competitivo: $\ge 2000$ medallas acumuladas.
-   * Disciplina de guerra: Cero ataques a barco rival ($\text{boat\_attacks} = 0$).
+   * Disciplina de guerra: Cero ataques a barco rival (`boat_attacks == 0`).
 2. **Descenso a Miembro (`demote_member`):**
    * Rol actual: `elder`.
    * Incumplimiento: Menos de 4 ataques en un Día de Guerra sin `WarPass` vigente.

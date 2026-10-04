@@ -78,7 +78,7 @@ _Avoid_: Ranking, rating, karma, MMR
 $$\text{Confiabilidad (\%)} = \begin{cases} 100.00 & \text{si } \text{Ataques Esperados} = 0 \\ \operatorname{round}\left(\frac{\text{Ataques Reales Realizados}}{\text{Ataques Esperados}} \times 100,\, 2\right) & \text{si } \text{Ataques Esperados} > 0 \end{cases}$$
 
 Donde:
-- **Ataques Reales Realizados**: $\sum_{d \in \text{Días Computables}} \min(\text{ataques\_usados}_d,\, 4)$
+- **Ataques Reales Realizados**: $\sum_{d \in \text{Días Computables}} \min(\text{ataques}_d,\, 4)$
 - **Ataques Esperados**: $\text{Días Computables} \times 4$
 
 #### Reglas de Negocio y Casos de Borde:
@@ -125,23 +125,15 @@ Las alertas horarias automáticas operan bajo las siguientes directrices:
 - **Horarios Intermedios (06:00 a 09:00 UTC):** Si todos los miembros activos completaron sus 4 ataques, el sistema opera en **modo silencio** (no emite mensajes para evitar spam).
 - **Cierre de Jornada (10:00 UTC):** Si se registra un 100% de cumplimiento en los ataques, se envía un mensaje de felicitación y reconocimiento de asistencia perfecta a los canales vinculados.
 
-### 3. Reglas Matemáticas de Clasificación de Miembros en la Alerta
-Cada miembro activo sin `WarPass` vigente que tenga menos de 4 ataques usados en la jornada es clasificado en una de las siguientes tres categorías mutuamente excluyentes:
+### 3. Reglas de Clasificación de Miembros en la Alerta
+Cada miembro activo sin `WarPass` vigente que tenga menos de 4 ataques usados en la jornada es clasificado en una de las siguientes tres categorías:
 
-$$\text{Categoría} = \begin{cases}
-\text{🚨 Candidato a Reemplazo / Expulsión} & \text{si } \text{attacks\_used} = 0 \land \text{reliability\_score} < 50.0\% \\
-\text{⚠️ Sin Ataques} & \text{si } \text{attacks\_used} = 0 \land \text{reliability\_score} \ge 50.0\% \\
-\text{⏳ En Progreso / Incompleto} & \text{si } 1 \le \text{attacks\_used} \le 3
-\end{cases}$$
+| Categoría | Condición Lógica | Racionalidad Operativa |
+| :--- | :--- | :--- |
+| 🚨 **Candidatos a Reemplazo / Expulsión** | `ataques_usados == 0` y `fiabilidad < 50.0%` | Miembros con alta probabilidad de inasistencia por historial deficiente. Candidatos prioritarios a ser reemplazados antes de las 10:00 UTC para dar cupo a nuevos jugadores. |
+| ⚠️ **Sin Ataques** | `ataques_usados == 0` y `fiabilidad >= 50.0%` | Miembros habitualmente cumplidores que aún no han atacado hoy; recordatorio estándar sin urgencia de expulsión inmediata. |
+| ⏳ **En Progreso / Incompleto** | `1 <= ataques_usados <= 3` | Miembros activos que ya comenzaron y les restan de 1 a 3 ataques por gastar. |
 
-#### Racionalidad Operativa de las Categorías:
-1. **🚨 Candidatos a Reemplazo / Expulsión ($\text{attacks} = 0 \land \text{fiabilidad} < 50\%$):**
-   - Miembros con alta probabilidad de inasistencia basados en su historial reciente deficiente.
-   - *Decisión para el Liderazgo:* Identificar a estos jugadores horas antes del cierre para expulsarlos a tiempo y dar cupo a nuevos miembros que sí ejecuten ataques en la jornada.
-2. **⚠️ Sin Ataques ($\text{attacks} = 0 \land \text{fiabilidad} \ge 50\%$):**
-   - Jugadores habitualmente cumplidores que aún no han ingresado en el día; requieren un recordatorio estándar sin urgencia de expulsión inmediata.
-3. **⏳ En Progreso ($1 \le \text{attacks} \le 3$):**
-   - Jugadores activos que ya iniciaron sus ataques pero aún tienen pendientes por gastar.
 
 ---
 
