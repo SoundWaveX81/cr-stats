@@ -57,13 +57,27 @@ class TestClanAndMemberModels:
 class TestWarModels:
     def test_river_race_and_unique_constraint(self):
         clan = Clan.objects.create(tag="#RACECLAN", name="Marineros")
+        standings_data = [
+            {"rank": 1, "tag": "#RIVAL", "name": "Rival Clan", "fame": 12000},
+            {"rank": 2, "tag": "#RACECLAN", "name": "Corredores", "fame": 10000},
+        ]
         race = RiverRace.objects.create(
             clan=clan,
             season_id=55,
             section_index=1,
             clan_score=10000,
+            standings=standings_data,
         )
         assert "Carrera T55-S1" in str(race)
+
+        standings_objs = race.get_standings_objects()
+        assert len(standings_objs) == 2
+        assert standings_objs[0].rank == 1
+        assert standings_objs[0].diff == 2000
+        assert standings_objs[0].is_target is False
+        assert standings_objs[1].rank == 2
+        assert standings_objs[1].diff == 0
+        assert standings_objs[1].is_target is True
 
         with pytest.raises(IntegrityError):
             RiverRace.objects.create(

@@ -6,7 +6,7 @@ import httpx
 from apps.clans.models import Clan
 from apps.governance.models import RosterAction
 
-from .base import BaseNotificationAdapter, PendingAttackItem
+from .base import BaseNotificationAdapter, ClanWarStanding, PendingAttackItem
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +48,58 @@ class DiscordWebhookNotificationAdapter(BaseNotificationAdapter):
         "member": "Miembro",
     }
 
+    @staticmethod
+    def _format_standings_field(standings: list[ClanWarStanding] | None) -> dict | None:
+        if not standings:
+            return None
+
+        target = next((s for s in standings if s.is_target), None)
+        if not target:
+            return None
+
+        medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+        rank_emoji = medals.get(target.rank, f"{target.rank}º")
+        target_fame_str = f"{target.fame:,}".replace(",", ".")
+
+        leader = standings[0] if standings else None
+        if target.rank == 1:
+            if len(standings) > 1:
+                lead_margin = target.fame - standings[1].fame
+                margin_str = f"{lead_margin:,}".replace(",", ".")
+                header_status = f"👑 ¡Líderes! (+{margin_str} pts de ventaja)"
+            else:
+                header_status = "👑 ¡Líderes!"
+        else:
+            gap = (leader.fame - target.fame) if leader else 0
+            gap_str = f"{gap:,}".replace(",", ".")
+            header_status = f"A {gap_str} pts del 1º ({leader.name})"
+
+        field_title = f"📊 Clasificación: {rank_emoji} {target.rank}º de {len(standings)} ({target_fame_str} pts)"
+        field_lines = [f"_{header_status}_"]
+
+        for s in standings:
+            s_icon = medals.get(s.rank, f"{s.rank}º")
+            f_str = f"{s.fame:,}".replace(",", ".")
+            if s.is_target:
+                field_lines.append(f"• {s_icon} 👑 **{s.name}**: {f_str} pts")
+            else:
+                d_str = f"{abs(s.diff):,}".replace(",", ".")
+                diff_label = f"+{d_str}" if s.diff > 0 else f"-{d_str}"
+                field_lines.append(f"• {s_icon} **{s.name}**: {f_str} pts (`{diff_label}`)")
+
+        return {
+            "name": field_title[:256],
+            "value": "\n".join(field_lines)[:1024],
+            "inline": False,
+        }
+
     def send_pending_attacks_alert(
         self,
         clan: Clan,
         pending_items: list[PendingAttackItem],
         war_day_date: date,
         hours_left: int = 0,
+        standings: list[ClanWarStanding] | None = None,
     ) -> bool:
         if not pending_items:
             return True
@@ -83,6 +129,11 @@ class DiscordWebhookNotificationAdapter(BaseNotificationAdapter):
         )
 
         fields = []
+
+        # Add standings field first if available
+        standings_field = self._format_standings_field(standings)
+        if standings_field:
+            fields.append(standings_field)
 
         if high_risk:
             val_lines = [
@@ -137,7 +188,17 @@ class DiscordWebhookNotificationAdapter(BaseNotificationAdapter):
         }
         return self._send_payload({"embeds": [embed]})
 
-    def send_all_attacks_completed_alert(self, clan: Clan, war_day_date: date) -> bool:
+    def send_all_attacks_completed_alert(
+        self,
+        clan: Clan,
+        war_day_date: date,
+        standings: list[ClanWarStanding] | None = None,
+    ) -> bool:
+        fields = []
+        standings_field = self._format_standings_field(standings)
+        if standings_field:
+            fields.append(standings_field)
+
         embed = {
             "title": f"🎉 ¡100% de Asistencia Completado — {clan.name}!",
             "description": (
@@ -146,6 +207,7 @@ class DiscordWebhookNotificationAdapter(BaseNotificationAdapter):
                 "Excelente compromiso y disciplina del equipo."
             ),
             "color": COLOR_GREEN,
+            "fields": fields,
             "footer": {"text": "Clan War Governance System"},
         }
         return self._send_payload({"embeds": [embed]})

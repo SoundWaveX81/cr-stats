@@ -28,7 +28,7 @@
 
 El sistema ejecuta recordatorios automáticos de ataques pendientes para permitir al colíder/líder reemplazar jugadores inactivos antes de que cierre el día:
 
-1. **Días Activos:** Exclusivamente **Días de Guerra** (Jueves a Domingo). En días de entrenamiento (Lunes a Miércoles) las alertas permanecen inactivas.
+1. **Días Activos:** Exclusivamente **Días de Guerra** (desde el Jueves 10:00 UTC hasta el Lunes 10:00 UTC). Dado que la jornada diaria en Clash Royale reinicia a las 10:00 UTC, la mañana del Lunes (06:00 a 10:00 UTC) es la recta final del cuarto Día de Guerra / Coliseo. En el período de entrenamiento (Lunes 10:00 UTC hasta Jueves 10:00 UTC) las alertas permanecen inactivas.
 2. **Cronograma Horario (UTC):**
    * **06:00 UTC** (4 horas antes del cierre)
    * **07:00 UTC** (3 horas antes del cierre)
@@ -39,6 +39,10 @@ El sistema ejecuta recordatorios automáticos de ataques pendientes para permiti
 4. **Política de Silencio vs Felicitación:**
    * Entre **06:00 y 09:00 UTC**: Si todos los miembros completaron sus ataques, el bot guarda **silencio total** (sin spam).
    * A las **10:00 UTC**: Si se registraron el 100% de ataques, se envía una notificación de felicitación y asistencia perfecta.
+5. **Clasificación en Vivo y Diferencial de Puntos:**
+   * **Posición del Clan:** Indica el puesto actual (ej: `🥈 2º de 5`) y los puntos/medallas de gloria acumulados.
+   * **Margen Táctico:** Indica la distancia exacta de puntos hacia el 1º lugar (o la ventaja sobre el 2º si el clan lidera).
+   * **Tabla de Posiciones de la Carrera:** Desglosa a los clanes rivales con sus medallas y la diferencia relativa (`+` por delante o `-` por detrás).
 
 ---
 
@@ -131,6 +135,31 @@ Al cerrar cada jornada de guerra (10:00 UTC), se generan recomendaciones automá
        "webhook_url": "https://discord.com/api/webhooks/123456789/abcdefgh..."
      }
      ```
+
+---
+
+## ⚙️ Configuración y Frecuencia de Alertas de Guerra
+
+Cada clan puede personalizar con qué frecuencia y en qué momentos se emiten los recordatorios de ataques durante la ventana de guerra (desde el Jueves 10:00 UTC hasta el Lunes 10:00 UTC).
+
+### Dónde Administrarlo:
+1. **Directo en Notificaciones:** [**Preferencias de Alertas de Guerra**](http://localhost:8000/admin/notifications/waralertpreference/) en Django Admin.
+2. **Integrado en el Clan:** Al editar un clan en [**Clanes**](http://localhost:8000/admin/clans/clan/), en la sección inferior *Preferencia de Alertas de Guerra del Clan*.
+
+### Opciones de Configuración:
+* **Activo (`is_enabled`):** Habilita o pausa temporalmente el envío programado de alertas para el clan.
+* **Frecuencia (`frequency`):**
+  * `hourly` *(Por defecto)*: Recta final cada hora (`06:00, 07:00, 08:00, 09:00, 10:00 UTC`).
+  * `every_2h`: Cada 2 horas (`06:00, 08:00, 10:00 UTC`).
+  * `last_2h`: Solo las últimas 2 horas (`08:00, 09:00, 10:00 UTC`).
+  * `last_1h`: Solo la última hora antes del reinicio (`09:00, 10:00 UTC`).
+  * `at_close_only`: Solo al cierre de guerra (`10:00 UTC`).
+  * `custom`: Horas UTC específicas separadas por comas (ejemplo: `5,7,9,10`).
+* **Silenciar si 0 pendientes (`silence_if_zero_pending`):** No envía alertas periódicas si todos los miembros activos ya atacaron.
+* **Felicitación al cierre (`send_congratulations_at_close`):** A las 10:00 UTC, si el 100% de los miembros atacaron, envía un mensaje festivo reconociendo el cumplimiento total.
+
+> [!NOTE]
+> Celery Beat evalúa estas preferencias en tiempo real en cada hora de guerra. Si modificas la frecuencia o las horas desde Django Admin, los cambios surten efecto de inmediato sin necesidad de reiniciar contenedores.
 
 ---
 

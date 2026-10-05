@@ -7,6 +7,7 @@ import respx
 from apps.clans.models import Clan, Member
 from apps.governance.models import RosterAction
 from apps.notifications.adapters import (
+    ClanWarStanding,
     ConsoleNotificationAdapter,
     DiscordWebhookNotificationAdapter,
     PendingAttackItem,
@@ -39,6 +40,26 @@ def sample_pending_items():
             role="elder",
             attacks_used=0,
             remaining_attacks=4,
+        ),
+    ]
+
+
+@pytest.fixture
+def sample_standings():
+    return [
+        ClanWarStanding(
+            rank=1, tag="#RIVAL1", name="war 101", fame=124300, is_target=False, diff=3050
+        ),
+        ClanWarStanding(
+            rank=2,
+            tag="#NOTIF_TEST",
+            name="Clan Notificaciones",
+            fame=121250,
+            is_target=True,
+            diff=0,
+        ),
+        ClanWarStanding(
+            rank=3, tag="#RIVAL2", name="A-15", fame=118050, is_target=False, diff=-3200
         ),
     ]
 
@@ -104,6 +125,33 @@ class TestDiscordWebhookNotificationAdapter:
         assert "100% de Asistencia Completado" in payload_comp
 
     @respx.mock
+    def test_discord_pending_attacks_alert_with_standings(
+        self, sample_clan, sample_pending_items, sample_standings
+    ):
+        webhook_url = "https://discord.com/api/webhooks/test/standings"
+        route = respx.post(webhook_url).mock(return_value=httpx.Response(204))
+
+        adapter = DiscordWebhookNotificationAdapter({"webhook_url": webhook_url})
+        result = adapter.send_pending_attacks_alert(
+            sample_clan,
+            sample_pending_items,
+            date(2026, 10, 5),
+            hours_left=2,
+            standings=sample_standings,
+        )
+
+        assert result is True
+        assert route.called
+        payload = route.calls.last.request.read().decode("utf-8")
+        assert "Clasificación" in payload
+        assert "2º de 3" in payload
+        assert "121.250 pts" in payload
+        assert "war 101" in payload
+        assert "+3.050" in payload
+        assert "A-15" in payload
+        assert "-3.200" in payload
+
+    @respx.mock
     def test_discord_daily_report_with_kicks(self, sample_clan):
         webhook_url = "https://discord.com/api/webhooks/test/123"
         route = respx.post(webhook_url).mock(return_value=httpx.Response(204))
@@ -153,6 +201,40 @@ class TestTelegramNotificationAdapter:
         assert adapter.send_all_attacks_completed_alert(sample_clan, date(2026, 9, 30)) is True
         call_comp = route.calls.last.request.read().decode("utf-8")
         assert "100% de Asistencia Completado" in call_comp
+
+    @respx.mock
+    def test_telegram_send_messages_with_standings(
+        self, sample_clan, sample_pending_items, sample_standings
+    ):
+        bot_url = "https://api.telegram.org/bot12345:TEST/sendMessage"
+        route = respx.post(bot_url).mock(return_value=httpx.Response(200, json={"ok": True}))
+
+        adapter = TelegramNotificationAdapter(
+            {
+                "bot_token": "12345:TEST",
+                "chat_id": "-100123456789",
+            }
+        )
+
+        assert (
+            adapter.send_pending_attacks_alert(
+                sample_clan,
+                sample_pending_items,
+                date(2026, 10, 5),
+                hours_left=1,
+                standings=sample_standings,
+            )
+            is True
+        )
+        assert route.called
+        call_json = route.calls.last.request.read().decode("utf-8")
+        assert "Posición en Guerra: 🥈 2º de 3" in call_json
+        assert "121.250 pts" in call_json
+        assert "a 3.050 pts del 1º (war 101)" in call_json
+        assert "war 101" in call_json
+        assert "+3.050" in call_json
+        assert "A-15" in call_json
+        assert "-3.200" in call_json
 
 
 @pytest.mark.django_db
@@ -243,3 +325,53 @@ class TestNotificationDispatcher:
         )
 
         call_command("test_notifications", clan=sample_clan.tag)
+
+    def test_war_alert_preference_frequencies(self, sample_clan):
+        from datetime import datetime, timezone
+
+        from apps.notifications.models import WarAlertPreference
+
+        pref = WarAlertPreference.get_for_clan(sample_clan)
+        assert pref.is_enabled is True
+        assert pref.frequency == "hourly"
+        assert pref.get_active_hours() == [6, 7, 8, 9, 10]
+
+        # On a Sunday at 08:00 UTC (Sunday is weekday 6)
+        sunday_8am = datetime(2026, 10, 4, 8, 0, tzinfo=timezone.utc)
+        assert pref.should_send_at(sunday_8am) is True
+
+        # On a Monday at 08:00 UTC (weekday 0, before 10:00 UTC - War Day 4 / Colosseum final stretch)
+        monday_8am = datetime(2026, 10, 5, 8, 0, tzinfo=timezone.utc)
+        assert pref.should_send_at(monday_8am) is True
+
+        # On a Monday at 12:00 UTC (weekday 0, after 10:00 UTC - Training Day 1 started)
+        monday_12pm = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
+        assert pref.should_send_at(monday_12pm) is False
+
+        # On a Thursday at 08:00 UTC (weekday 3, before 10:00 UTC - Training Day 3 final stretch, war hasn't started)
+        thursday_8am = datetime(2026, 10, 1, 8, 0, tzinfo=timezone.utc)
+        assert pref.should_send_at(thursday_8am) is False
+
+        # On a Wednesday (weekday 2 - training day)
+        wednesday_8am = datetime(2026, 9, 30, 8, 0, tzinfo=timezone.utc)
+        assert pref.should_send_at(wednesday_8am) is False
+
+        # Every 2 hours
+        pref.frequency = "every_2h"
+        assert pref.get_active_hours() == [6, 8, 10]
+        assert pref.should_send_at(datetime(2026, 10, 4, 7, 0, tzinfo=timezone.utc)) is False
+        assert pref.should_send_at(datetime(2026, 10, 4, 8, 0, tzinfo=timezone.utc)) is True
+
+        # Custom hours
+        pref.frequency = "custom"
+        pref.custom_hours = "7, 12, 20"
+        assert pref.get_active_hours() == [7, 12, 20]
+        assert pref.should_send_at(datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)) is True
+        assert pref.should_send_at(datetime(2026, 10, 4, 10, 0, tzinfo=timezone.utc)) is False
+        # Thursday afternoon at 12:00 UTC (War Day 1 is running)
+        assert pref.should_send_at(datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)) is True
+
+        # Disabled
+        pref.is_enabled = False
+        assert pref.get_active_hours() == []
+        assert pref.should_send_at(datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)) is False

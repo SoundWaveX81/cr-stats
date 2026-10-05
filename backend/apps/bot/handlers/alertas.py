@@ -37,6 +37,6 @@ def handle_alertas(args: list[str], chat_id: int | str | None = None) -> str:
     return (
         f"✅ <b>Canal de Alertas Configurado</b>\n\n"
         f"Este chat (ID: <code>{chat_id}</code>) ha sido {action_text} para el clan <b>{clan.name}</b> (<code>{clan.tag}</code>).\n\n"
-        f"⏰ Recibirás alertas automáticas los <b>Días de Guerra (Jueves a Domingo)</b> a las "
-        f"<b>06:00, 07:00, 08:00, 09:00 y 10:00 UTC</b> con los miembros que falten por atacar."
+        f"⏰ Recibirás alertas automáticas durante los <b>Días de Guerra (Jueves 10:00 UTC a Lunes 10:00 UTC)</b> "
+        f"según la frecuencia y horarios configurados para el clan en Django Admin."
     )

@@ -526,12 +526,9 @@ def create_discord_bot() -> commands.Bot:
             description=(
                 f"Este canal ha sido {action_word} para recibir los recordatorios automáticos del clan "
                 f"**{clan.name}** (`{clan.tag}`).\n\n"
-                f"⏰ **Horarios de envío (Jueves a Domingo):**\n"
-                f"• 06:00 UTC (quedan 4 horas)\n"
-                f"• 07:00 UTC (quedan 3 horas)\n"
-                f"• 08:00 UTC (quedan 2 horas)\n"
-                f"• 09:00 UTC (queda 1 hora)\n"
-                f"• 10:00 UTC (cierre de jornada / confirmación final)"
+                f"⏰ **Ventana de Guerra:** Jueves 10:00 UTC a Lunes 10:00 UTC\n"
+                f"Las alertas se emiten según la frecuencia y horarios configurados para el clan en Django Admin "
+                f"(por defecto a las 06:00, 07:00, 08:00, 09:00 y 10:00 UTC)."
             ),
             color=0x2ECC71,
         )

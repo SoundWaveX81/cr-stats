@@ -32,6 +32,27 @@ class SyncRiverRaceService:
         clan_score = clan_data.get("fame", clan_data.get("clanScore", 0))
         season_id = data.get("seasonId", 1)
 
+        raw_clans = data.get("clans", [])
+        sorted_clans = sorted(
+            raw_clans,
+            key=lambda c: (
+                c.get("fame", 0),
+                c.get("clanScore", 0),
+            ),
+            reverse=True,
+        )
+        standings = [
+            {
+                "rank": idx + 1,
+                "tag": c.get("tag"),
+                "name": c.get("name"),
+                "fame": c.get("fame", 0),
+                "clan_score": c.get("clanScore", 0),
+                "badge_id": c.get("badgeId"),
+            }
+            for idx, c in enumerate(sorted_clans)
+        ]
+
         river_race, _ = RiverRace.objects.update_or_create(
             clan=clan,
             season_id=season_id,
@@ -39,6 +60,7 @@ class SyncRiverRaceService:
             defaults={
                 "state": data.get("state", "matched"),
                 "clan_score": clan_score,
+                "standings": standings,
             },
         )
 

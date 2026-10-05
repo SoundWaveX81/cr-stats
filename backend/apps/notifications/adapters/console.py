@@ -4,7 +4,7 @@ from datetime import date
 from apps.clans.models import Clan
 from apps.governance.models import RosterAction
 
-from .base import BaseNotificationAdapter, PendingAttackItem
+from .base import BaseNotificationAdapter, ClanWarStanding, PendingAttackItem
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,19 @@ class ConsoleNotificationAdapter(BaseNotificationAdapter):
         pending_items: list[PendingAttackItem],
         war_day_date: date,
         hours_left: int = 0,
+        standings: list[ClanWarStanding] | None = None,
     ) -> bool:
         countdown = f" (Cierre en {hours_left}h)" if hours_left > 0 else " (Cierre de jornada)"
         lines = [f"[ALERTA ATAQUES PENDIENTES]{countdown} {clan.name} ({war_day_date}):"]
+        if standings:
+            target = next((s for s in standings if s.is_target), None)
+            if target:
+                lines.append(f" - [CLASIFICACIÓN] Puesto {target.rank}º ({target.fame:,} pts):")
+                for s in standings:
+                    prefix = "👑 " if s.is_target else ""
+                    lines.append(
+                        f"    {s.rank}º {prefix}{s.name}: {s.fame:,} pts (diff: {s.diff:+d})"
+                    )
         for item in pending_items:
             lines.append(
                 f" - {item.member_name} ({item.member_tag}, {item.role}): "
@@ -33,8 +43,22 @@ class ConsoleNotificationAdapter(BaseNotificationAdapter):
         logger.info(msg)
         return True
 
-    def send_all_attacks_completed_alert(self, clan: Clan, war_day_date: date) -> bool:
-        msg = f"[100% ASISTENCIA] {clan.name} ({war_day_date}): ¡Todos los miembros activos completaron sus 4 ataques de guerra!"
+    def send_all_attacks_completed_alert(
+        self,
+        clan: Clan,
+        war_day_date: date,
+        standings: list[ClanWarStanding] | None = None,
+    ) -> bool:
+        lines = [
+            f"[100% ASISTENCIA] {clan.name} ({war_day_date}): ¡Todos los miembros activos completaron sus 4 ataques de guerra!"
+        ]
+        if standings:
+            target = next((s for s in standings if s.is_target), None)
+            if target:
+                lines.append(
+                    f" - [CLASIFICACIÓN FINAL] Puesto {target.rank}º ({target.fame:,} pts)"
+                )
+        msg = "\n".join(lines)
         logger.info(msg)
         return True
 

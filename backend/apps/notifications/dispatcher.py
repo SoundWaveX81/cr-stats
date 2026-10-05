@@ -7,6 +7,7 @@ from apps.clans.models import Clan
 from apps.governance.models import RosterAction
 from apps.notifications.adapters import (
     BaseNotificationAdapter,
+    ClanWarStanding,
     ConsoleNotificationAdapter,
     DiscordWebhookNotificationAdapter,
     PendingAttackItem,
@@ -80,6 +81,7 @@ class NotificationDispatcher:
         pending_items: list[PendingAttackItem],
         war_day_date: date,
         hours_left: int = 0,
+        standings: list[ClanWarStanding] | None = None,
     ) -> dict[int | str, bool]:
         """Send pending attacks alerts to all configured clan channels."""
         results = {}
@@ -87,7 +89,11 @@ class NotificationDispatcher:
             ch_key = channel.id if isinstance(channel, NotificationChannel) else channel
             try:
                 success = adapter.send_pending_attacks_alert(
-                    clan, pending_items, war_day_date, hours_left=hours_left
+                    clan,
+                    pending_items,
+                    war_day_date,
+                    hours_left=hours_left,
+                    standings=standings,
                 )
                 results[ch_key] = success
             except Exception as exc:
@@ -96,14 +102,19 @@ class NotificationDispatcher:
         return results
 
     def dispatch_all_attacks_completed(
-        self, clan: Clan, war_day_date: date
+        self,
+        clan: Clan,
+        war_day_date: date,
+        standings: list[ClanWarStanding] | None = None,
     ) -> dict[int | str, bool]:
         """Send 100% completion notice to all configured clan channels."""
         results = {}
         for channel, adapter in self.get_adapters_for_clan(clan):
             ch_key = channel.id if isinstance(channel, NotificationChannel) else channel
             try:
-                success = adapter.send_all_attacks_completed_alert(clan, war_day_date)
+                success = adapter.send_all_attacks_completed_alert(
+                    clan, war_day_date, standings=standings
+                )
                 results[ch_key] = success
             except Exception as exc:
                 logger.exception(f"Unexpected error dispatching to channel {ch_key}: {exc}")

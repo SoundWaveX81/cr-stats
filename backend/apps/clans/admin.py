@@ -1,6 +1,17 @@
 from django.contrib import admin
 
+from apps.notifications.models import WarAlertPreference
+
 from .models import Clan, Member, WarPass
+
+
+class WarAlertPreferenceInline(admin.StackedInline):
+    model = WarAlertPreference
+    can_delete = False
+    verbose_name = "Preferencia de Alertas de Guerra"
+    verbose_name_plural = "Preferencia de Alertas de Guerra"
+    readonly_fields = ("updated_at",)
+    extra = 0
 
 
 @admin.register(Clan)
@@ -15,6 +26,7 @@ class ClanAdmin(admin.ModelAdmin):
     )
     list_filter = ("is_active",)
     search_fields = ("tag", "name")
+    inlines = [WarAlertPreferenceInline]
 
 
 @admin.register(Member)

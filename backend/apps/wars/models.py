@@ -15,6 +15,11 @@ class RiverRace(models.Model):
     clan_score = models.PositiveIntegerField(
         default=0, help_text="Puntos de fama o medallas acumuladas del clan"
     )
+    standings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Ranking y puntos acumulados de los clanes rivales en la carrera",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -31,6 +36,35 @@ class RiverRace(models.Model):
 
     def __str__(self) -> str:
         return f"Carrera T{self.season_id}-S{self.section_index} ({self.clan.name})"
+
+    def get_standings_objects(self):
+        from apps.notifications.adapters.base import ClanWarStanding
+
+        if not self.standings:
+            return []
+
+        target_tag = self.clan.tag
+        target_fame = self.clan_score
+        target_entry = next((s for s in self.standings if s.get("tag") == target_tag), None)
+        if target_entry:
+            target_fame = target_entry.get("fame", target_fame)
+
+        result = []
+        for s in self.standings:
+            fame = s.get("fame", 0)
+            is_target = s.get("tag") == target_tag
+            diff = fame - target_fame
+            result.append(
+                ClanWarStanding(
+                    rank=s.get("rank", 0),
+                    tag=s.get("tag", ""),
+                    name=s.get("name", "Clan"),
+                    fame=fame,
+                    is_target=is_target,
+                    diff=diff,
+                )
+            )
+        return result
 
 
 class WarDay(models.Model):

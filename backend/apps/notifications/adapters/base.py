@@ -33,6 +33,18 @@ class PendingAttackItem:
         return 0 < self.attacks_used < 4
 
 
+@dataclass(frozen=True)
+class ClanWarStanding:
+    """Represents a clan's ranking and points in the current river race."""
+
+    rank: int
+    tag: str
+    name: str
+    fame: int
+    is_target: bool = False
+    diff: int = 0  # Points difference relative to our clan (> 0 ahead, < 0 behind)
+
+
 class BaseNotificationAdapter(ABC):
     """Abstract interface defining the multi-provider notification adapter contract."""
 
@@ -43,11 +55,17 @@ class BaseNotificationAdapter(ABC):
         pending_items: list[PendingAttackItem],
         war_day_date: date,
         hours_left: int = 0,
+        standings: list[ClanWarStanding] | None = None,
     ) -> bool:
         """Send reminder alert for members with pending attacks before day reset."""
 
     @abstractmethod
-    def send_all_attacks_completed_alert(self, clan: Clan, war_day_date: date) -> bool:
+    def send_all_attacks_completed_alert(
+        self,
+        clan: Clan,
+        war_day_date: date,
+        standings: list[ClanWarStanding] | None = None,
+    ) -> bool:
         """Send congratulatory notice when 100% of clan attacks are completed."""
 
     @abstractmethod

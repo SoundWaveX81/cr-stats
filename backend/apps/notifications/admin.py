@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 
 from apps.notifications.dispatcher import NotificationDispatcher
 
-from .models import NotificationChannel
+from .models import NotificationChannel, WarAlertPreference
 
 
 @admin.register(NotificationChannel)
@@ -173,3 +173,69 @@ class NotificationChannelAdmin(admin.ModelAdmin):
                 f"❌ Error al enviar alerta a: {', '.join(failures)}",
                 level=messages.ERROR,
             )
+
+
+@admin.register(WarAlertPreference)
+class WarAlertPreferenceAdmin(admin.ModelAdmin):
+    list_display = (
+        "clan",
+        "frequency",
+        "is_enabled",
+        "silence_if_zero_pending",
+        "send_congratulations_at_close",
+        "updated_at",
+    )
+    list_filter = (
+        "is_enabled",
+        "frequency",
+        "silence_if_zero_pending",
+        "send_congratulations_at_close",
+    )
+    search_fields = ("clan__name", "clan__tag")
+    readonly_fields = ("created_at", "updated_at", "display_active_hours")
+
+    fieldsets = (
+        (
+            "Configuración del Clan",
+            {
+                "fields": ("clan", "is_enabled"),
+                "description": "Control principal para activar o pausar recordatorios automáticos de ataques de guerra.",
+            },
+        ),
+        (
+            "Frecuencia y Horarios",
+            {
+                "fields": ("frequency", "custom_hours", "display_active_hours"),
+                "description": (
+                    "Elige la frecuencia deseada para los días de guerra (Jueves 10:00 UTC a Lunes 10:00 UTC).<br/>"
+                    "• <b>Cada 1 hora:</b> 06:00, 07:00, 08:00, 09:00 y 10:00 UTC (4h, 3h, 2h, 1h antes del cierre y al cierre).<br/>"
+                    "• <b>Cada 2 horas:</b> 06:00, 08:00 y 10:00 UTC (4h y 2h antes del cierre y al cierre).<br/>"
+                    "• <b>Últimas 2 horas:</b> 08:00, 09:00 y 10:00 UTC (2h y 1h antes del cierre y al cierre).<br/>"
+                    "• <b>Solo última hora:</b> 09:00 y 10:00 UTC (1h antes del cierre y al cierre).<br/>"
+                    "• <b>Solo al cierre:</b> 10:00 UTC.<br/>"
+                    "• <b>Personalizado:</b> Introduce las horas UTC deseadas separadas por comas en el campo inferior."
+                ),
+            },
+        ),
+        (
+            "Comportamiento ante 0 Pendientes",
+            {
+                "fields": ("silence_if_zero_pending", "send_congratulations_at_close"),
+                "description": "Reglas para silenciar spam intermedio o felicitar al clan al cierre de jornada.",
+            },
+        ),
+        (
+            "Auditoría",
+            {
+                "fields": ("created_at", "updated_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="Horas UTC activas calculadas")
+    def display_active_hours(self, obj):
+        hours = obj.get_active_hours()
+        if not hours:
+            return "Ninguna (Alertas desactivadas)"
+        return ", ".join(f"{h:02d}:00 UTC" for h in hours)

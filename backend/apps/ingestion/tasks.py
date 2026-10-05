@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime, time
+from datetime import datetime, time, timedelta
 from datetime import timezone as dt_timezone
 
 from celery import shared_task
@@ -7,6 +7,7 @@ from celery import shared_task
 from apps.clans.models import Clan
 from apps.notifications.adapters import PendingAttackItem
 from apps.notifications.dispatcher import NotificationDispatcher
+from apps.notifications.models import WarAlertPreference
 from apps.wars.models import WarAttackLog, WarDay
 
 from .services import SyncClanService, SyncRiverRaceService
@@ -70,19 +71,31 @@ def task_send_pending_attack_reminders(
         if clan_tag
         else Clan.objects.filter(is_active=True)
     )
-    today = date.today()
     dispatcher = NotificationDispatcher()
     sync_race_service = SyncRiverRaceService()
     summary = {}
 
     now_utc = datetime.now(dt_timezone.utc)
-    today_reset = datetime.combine(now_utc.date(), time(10, 0), tzinfo=dt_timezone.utc)
-    if now_utc >= today_reset:
-        hours_left = 0
+    today = now_utc.date()
+    if now_utc.hour < 10:
+        target_reset = datetime.combine(today, time(10, 0), tzinfo=dt_timezone.utc)
+    elif now_utc.hour == 10 and now_utc.minute == 0:
+        target_reset = now_utc
     else:
-        hours_left = max(0, int((today_reset - now_utc).total_seconds() // 3600))
+        target_reset = datetime.combine(
+            today + timedelta(days=1), time(10, 0), tzinfo=dt_timezone.utc
+        )
+
+    hours_left = max(0, int((target_reset - now_utc).total_seconds() // 3600))
 
     for clan in clans:
+        pref = WarAlertPreference.get_for_clan(clan)
+        if not force and not pref.should_send_at(now_utc):
+            logger.debug(
+                f"Skipping reminders for clan {clan.name}: not scheduled for hour {now_utc.hour:02d}:00 UTC."
+            )
+            continue
+
         # Sync live war data from Clash Royale API to prevent false reminders
         try:
             sync_race_service.sync(clan)
@@ -96,6 +109,18 @@ def task_send_pending_attack_reminders(
             is_closed=False,
             date=today,
         ).first()
+
+        if not open_war_day:
+            # Fallback to the latest open war day in the current river race
+            open_war_day = (
+                WarDay.objects.filter(
+                    river_race__clan=clan,
+                    day_type="war",
+                    is_closed=False,
+                )
+                .order_by("-date")
+                .first()
+            )
 
         if not open_war_day and force:
             open_war_day = (
@@ -136,19 +161,39 @@ def task_send_pending_attack_reminders(
                     )
                 )
 
+        # Retrieve live war standings from river race if available
+        standings = (
+            open_war_day.river_race.get_standings_objects()
+            if open_war_day and open_war_day.river_race
+            else []
+        )
+
         if pending_items:
             dispatcher.dispatch_pending_attacks(
-                clan, pending_items, open_war_day.date, hours_left=hours_left
+                clan,
+                pending_items,
+                open_war_day.date,
+                hours_left=hours_left,
+                standings=standings,
             )
             summary[clan.tag] = len(pending_items)
         else:
-            # If 0 pending: send congratulatory alert at day close (10:00 UTC), silence during intermediate hours
-            if force or hours_left == 0 or now_utc.hour == 10:
-                dispatcher.dispatch_all_attacks_completed(clan, open_war_day.date)
+            # If 0 pending: check silence and congratulation rules
+            is_close_hour = hours_left == 0 or now_utc.hour == 10
+            if is_close_hour:
+                if pref.send_congratulations_at_close or force:
+                    dispatcher.dispatch_all_attacks_completed(
+                        clan, open_war_day.date, standings=standings
+                    )
             else:
-                logger.info(
-                    f"All members of clan {clan.name} completed attacks. Silencing reminder ({hours_left}h left)."
-                )
+                if pref.silence_if_zero_pending and not force:
+                    logger.info(
+                        f"All members of clan {clan.name} completed attacks. Silencing reminder ({hours_left}h left)."
+                    )
+                else:
+                    dispatcher.dispatch_all_attacks_completed(
+                        clan, open_war_day.date, standings=standings
+                    )
             summary[clan.tag] = 0
 
     return summary

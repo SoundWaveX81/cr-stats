@@ -81,11 +81,21 @@ class Command(BaseCommand):
                 continue
 
             if send_pending:
-                self.stdout.write("Forzando envío de alerta de ataques pendientes...")
+                self.stdout.write(
+                    "Sincronizando y forzando envío de alerta de ataques pendientes..."
+                )
                 from datetime import date
 
+                from apps.ingestion.services import SyncRiverRaceService
                 from apps.notifications.adapters.base import PendingAttackItem
                 from apps.wars.models import WarAttackLog, WarDay
+
+                try:
+                    SyncRiverRaceService().sync(clan)
+                except Exception as exc:
+                    self.stdout.write(
+                        self.style.WARNING(f"Aviso: no se pudo sincronizar en vivo: {exc}")
+                    )
 
                 today = date.today()
                 open_war_day = (
@@ -127,6 +137,12 @@ class Command(BaseCommand):
                             )
                         )
 
+                standings = (
+                    open_war_day.river_race.get_standings_objects()
+                    if open_war_day and open_war_day.river_race
+                    else []
+                )
+
                 for ch, adapter in adapters:
                     ch_desc = (
                         f"{ch.get_provider_display()} (ID: {ch.id})"
@@ -137,10 +153,16 @@ class Command(BaseCommand):
                     try:
                         ok = (
                             adapter.send_pending_attacks_alert(
-                                clan, pending_items, open_war_day.date, hours_left=0
+                                clan,
+                                pending_items,
+                                open_war_day.date,
+                                hours_left=0,
+                                standings=standings,
                             )
                             if pending_items
-                            else adapter.send_all_attacks_completed_alert(clan, open_war_day.date)
+                            else adapter.send_all_attacks_completed_alert(
+                                clan, open_war_day.date, standings=standings
+                            )
                         )
                         if ok:
                             self.stdout.write(self.style.SUCCESS("[OK]"))

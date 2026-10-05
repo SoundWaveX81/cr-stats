@@ -117,7 +117,7 @@ _Avoid_: Slash command exclusivo, trigger
 
 ### 1. Cronograma y Disparador de Alertas
 Las alertas horarias automáticas operan bajo las siguientes directrices:
-- **Días Activos:** Exclusivamente **Días de Guerra** (Jueves, Viernes, Sábado y Domingo; `day_of_week='4,5,6,0'`). Los días de entrenamiento están exentos de alertas de ataques pendientes.
+- **Días Activos:** Exclusivamente **Días de Guerra** (desde el Jueves 10:00 UTC hasta el Lunes 10:00 UTC). Como el día en Clash Royale reinicia a las 10:00 UTC, la mañana del Lunes (06:00 a 10:00 UTC) es la recta final del cuarto Día de Guerra / Coliseo. El período de entrenamiento (Lunes 10:00 UTC a Jueves 10:00 UTC) queda exento de alertas.
 - **Ventana Horaria de Ejecución (UTC):**
   - `06:00 UTC`: 4 horas antes del cierre.
   - `07:00 UTC`: 3 horas antes del cierre.
@@ -139,6 +139,17 @@ Cada miembro activo sin `WarPass` vigente que tenga menos de 4 ataques usados en
 | ⚠️ **Sin Ataques** | `ataques_usados == 0` y `fiabilidad >= 50.0%` | Miembros habitualmente cumplidores que aún no han atacado hoy; recordatorio estándar sin urgencia de expulsión inmediata. |
 | ⏳ **En Progreso / Incompleto** | `1 <= ataques_usados <= 3` | Miembros activos que ya comenzaron y les restan de 1 a 3 ataques por gastar. |
 
+### 4. Ranking en Vivo y Diferencial de Puntos del Clan (Standings)
+Cada alerta periódica incluye en su encabezado la posición competitiva actual en la River Race y la diferencia de medallas/puntos frente a los rivales:
+- **Almacenamiento y Sincronización:** El modelo `RiverRace` incluye el campo `standings` (JSONField). Cada vez que se sincroniza la carrera (`SyncRiverRaceService`), se parsea la lista de clanes de la API de Supercell (`data["clans"]`), ordenándose descendentemente por medallas/fama (`fame`) y puntuación (`clanScore`).
+- **Cálculo del Diferencial de Puntos:**
+  - Para cada clan rival $c$, el diferencial relativo a nuestro clan objetivo se define como:
+    $$\Delta \text{pts}_c = \text{fame}_c - \text{fame}_{\text{target}}$$
+  - Si $\Delta \text{pts}_c > 0$: El rival se encuentra por delante de nosotros (`+X pts`).
+  - Si $\Delta \text{pts}_c < 0$: El rival se encuentra por detrás de nosotros (`-X pts`).
+- **Presentación en Canales:**
+  - **Telegram:** Muestra la posición general con medalla (ej. `🥈 2º de 5 (121.250 pts)`), la distancia directa hacia el líder si no somos 1º (`— a 3.650 pts del 1º (nombre)`), y el desglose de los 5 clanes con `🥇`, `🥈`, `🥉`, corona distintiva `👑` para nuestro clan y diferencias relativas (`+3.650`, `-2.700`).
+  - **Discord:** Presenta un campo dedicado (`field`) al tope del embed con formato enriquecido similar, permitiendo lectura rápida desde móvil o escritorio.
 
 ---
 
@@ -153,7 +164,26 @@ Cada miembro activo sin `WarPass` vigente que tenga menos de 4 ataques usados en
   - Django Admin: Proveedor `discord_webhook` con configuración JSON `{"webhook_url": "https://discord.com/api/webhooks/..."}`.
 - **Consola / Logs:** Proveedor `console` con JSON `{}` para depuración en entornos locales o de testing.
 
-### 2. Comandos para Enviar y Forzar Pruebas
+### 2. Preferencias de Frecuencia de Alertas (WarAlertPreference)
+Cada clan gestiona de forma independiente la frecuencia y horarios con los que recibe alertas de guerra desde Django Admin:
+- **Modelo:** `WarAlertPreference` (`apps.notifications.models.WarAlertPreference`, OneToOne con `Clan`).
+- **Ubicación en Admin:**
+  - Sección independiente: `/admin/notifications/waralertpreference/`
+  - Inline integrado dentro de cada clan: `/admin/clans/clan/<id>/change/`
+- **Presets de Frecuencia Disponibles:**
+  - `hourly` *(por defecto)*: Recta final cada hora (`06:00, 07:00, 08:00, 09:00, 10:00 UTC`).
+  - `every_2h`: Cada 2 horas (`06:00, 08:00, 10:00 UTC`).
+  - `last_2h`: Últimas 2 horas (`08:00, 09:00, 10:00 UTC`).
+  - `last_1h`: Última hora antes del reinicio (`09:00, 10:00 UTC`).
+  - `at_close_only`: Solo al cierre de guerra (`10:00 UTC`).
+  - `custom`: Horas UTC separadas por comas (ej. `5,7,9,10`).
+- **Comportamiento y Reglas:**
+  - `is_enabled`: Permite suspender o reactivar las alertas de un clan con un clic.
+  - `silence_if_zero_pending`: Omite los recordatorios intermedios si no hay miembros con ataques pendientes.
+  - `send_congratulations_at_close`: Envía mensaje festivo a las 10:00 UTC si el clan cumplió al 100%.
+  - **Ejecución Dinámica:** Celery Beat dispara el task cada hora (`crontab(minute=0, hour="*")`). La tarea evalúa `pref.should_send_at(now_utc)` consultando la BD en tiempo real, sin requerir reinicios de contenedores ni redespliegues.
+
+### 3. Comandos para Enviar y Forzar Pruebas
 
 #### Desde Django Admin:
 En la sección **Canales de Notificación** (`/admin/notifications/notificationchannel/`):

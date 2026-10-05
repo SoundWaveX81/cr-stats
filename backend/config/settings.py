@@ -163,7 +163,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     "send-pending-attack-reminders-hourly": {
         "task": "apps.ingestion.tasks.task_send_pending_attack_reminders",
-        "schedule": crontab(minute=0, hour="6,7,8,9,10", day_of_week="4,5,6,0"),
+        "schedule": crontab(minute=0, hour="*"),
     },
     "evaluate-war-day-governance-daily": {
         "task": "apps.governance.tasks.task_evaluate_war_day_governance",

@@ -8,7 +8,7 @@ from django.conf import settings
 from apps.clans.models import Clan
 from apps.governance.models import RosterAction
 
-from .base import BaseNotificationAdapter, PendingAttackItem
+from .base import BaseNotificationAdapter, ClanWarStanding, PendingAttackItem
 
 logger = logging.getLogger(__name__)
 
@@ -53,12 +53,57 @@ class TelegramNotificationAdapter(BaseNotificationAdapter):
         "member": "Miembro",
     }
 
+    @staticmethod
+    def _format_standings(standings: list[ClanWarStanding] | None) -> list[str]:
+        if not standings:
+            return []
+
+        target = next((s for s in standings if s.is_target), None)
+        if not target:
+            return []
+
+        medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+        rank_emoji = medals.get(target.rank, f"{target.rank}º")
+        target_fame_str = f"{target.fame:,}".replace(",", ".")
+
+        leader = standings[0] if standings else None
+        if target.rank == 1:
+            if len(standings) > 1:
+                lead_margin = target.fame - standings[1].fame
+                margin_str = f"{lead_margin:,}".replace(",", ".")
+                header_status = f"— ¡Líderes! (+{margin_str} ventaja)"
+            else:
+                header_status = "— ¡Líderes!"
+        else:
+            gap = (leader.fame - target.fame) if leader else 0
+            gap_str = f"{gap:,}".replace(",", ".")
+            leader_name = html.escape(leader.name) if leader else "1º"
+            header_status = f"— a {gap_str} pts del 1º ({leader_name})"
+
+        lines = [
+            f"📊 <b>Posición en Guerra: {rank_emoji} {target.rank}º de {len(standings)} ({target_fame_str} pts) {header_status}</b>"
+        ]
+        for s in standings:
+            s_icon = medals.get(s.rank, f"{s.rank}º")
+            f_str = f"{s.fame:,}".replace(",", ".")
+            name_esc = html.escape(s.name)
+            if s.is_target:
+                lines.append(f"• {s_icon} 👑 <b>{name_esc}</b>: {f_str} pts")
+            else:
+                d_str = f"{abs(s.diff):,}".replace(",", ".")
+                diff_label = f"+{d_str}" if s.diff > 0 else f"-{d_str}"
+                lines.append(f"• {s_icon} <b>{name_esc}</b>: {f_str} pts (<i>{diff_label}</i>)")
+
+        lines.append("")
+        return lines
+
     def send_pending_attacks_alert(
         self,
         clan: Clan,
         pending_items: list[PendingAttackItem],
         war_day_date: date,
         hours_left: int = 0,
+        standings: list[ClanWarStanding] | None = None,
     ) -> bool:
         if not pending_items:
             return True
@@ -84,6 +129,11 @@ class TelegramNotificationAdapter(BaseNotificationAdapter):
             f"📅 Jornada: <code>{war_day_date}</code> | Faltan: <b>{len(pending_items)}</b> miembros",
             f"⏰ <b>Cierre de jornada en:</b> {countdown_str}\n",
         ]
+
+        # Append war standings if available
+        standings_lines = self._format_standings(standings)
+        if standings_lines:
+            lines.extend(standings_lines)
 
         if high_risk:
             lines.append("🚨 <b>Candidatos a Reemplazo / Expulsión</b> (&lt; 50% fiabilidad):")
@@ -118,13 +168,21 @@ class TelegramNotificationAdapter(BaseNotificationAdapter):
 
         return self._send_message("\n".join(lines))
 
-    def send_all_attacks_completed_alert(self, clan: Clan, war_day_date: date) -> bool:
-        text = (
-            f"🎉 <b>¡100% de Asistencia Completado — {html.escape(clan.name)}!</b>\n\n"
-            f"📅 Jornada: <code>{war_day_date}</code> (10:00 UTC)\n"
-            f"¡Todos los miembros activos del clan han realizado sus 4 ataques de guerra hoy! Excelente compromiso y disciplina del equipo."
-        )
-        return self._send_message(text)
+    def send_all_attacks_completed_alert(
+        self,
+        clan: Clan,
+        war_day_date: date,
+        standings: list[ClanWarStanding] | None = None,
+    ) -> bool:
+        lines = [
+            f"🎉 <b>¡100% de Asistencia Completado — {html.escape(clan.name)}!</b>\n",
+            f"📅 Jornada: <code>{war_day_date}</code> (10:00 UTC)\n",
+            "¡Todos los miembros activos del clan han realizado sus 4 ataques de guerra hoy! Excelente compromiso y disciplina del equipo.\n",
+        ]
+        standings_lines = self._format_standings(standings)
+        if standings_lines:
+            lines.extend(standings_lines)
+        return self._send_message("\n".join(lines))
 
     def send_daily_roster_report(
         self, clan: Clan, actions: list[RosterAction], war_day_date: date
