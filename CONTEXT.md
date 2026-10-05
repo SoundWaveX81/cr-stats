@@ -75,10 +75,15 @@ Porcentaje histórico normalizado de asistencia y cumplimiento de ataques en Dí
 _Avoid_: Ranking, rating, karma, MMR
 
 #### Fórmula de Cálculo:
-$$\text{Confiabilidad (\%)} = \begin{cases} 100.00 & \text{si } \text{Ataques Esperados} = 0 \\ \operatorname{round}\left(\frac{\text{Ataques Reales Realizados}}{\text{Ataques Esperados}} \times 100,\, 2\right) & \text{si } \text{Ataques Esperados} > 0 \end{cases}$$
+$$\text{Confiabilidad (\%)} = \begin{cases}
+100.00 & \text{si } \text{Ataques Esperados} = 0 \\
+\frac{\text{Ataques Reales Realizados}}{\text{Ataques Esperados}} \times 100 & \text{si } \text{Ataques Esperados} > 0
+\end{cases}$$
+
+*(El resultado final se calcula y almacena redondeado a 2 decimales)*.
 
 Donde:
-- **Ataques Reales Realizados**: $\sum_{d \in \text{Días Computables}} \min(\text{ataques}_d,\, 4)$
+- **Ataques Reales Realizados**: $\sum_{d \in \text{Días Computables}} \min(\text{ataques}_d, 4)$
 - **Ataques Esperados**: $\text{Días Computables} \times 4$
 
 #### Reglas de Negocio y Casos de Borde:

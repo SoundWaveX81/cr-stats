@@ -60,11 +60,13 @@ La confiabilidad evalúa el porcentaje de asistencia en Días de Guerra concluid
 
 $$\text{Confiabilidad (\%)} = \begin{cases}
 100.00 & \text{si } |D| = 0 \\
-\operatorname{round}\left(\frac{\sum_{d \in D} \min(\text{ataques}_d,\, 4)}{4 \times |D|} \times 100,\, 2\right) & \text{si } |D| > 0
+\frac{\sum_{d \in D} \min(\text{ataques}_d, 4)}{4 \times |D|} \times 100 & \text{si } |D| > 0
 \end{cases}$$
 
+*(El resultado final se calcula y almacena redondeado a 2 decimales)*.
+
 Donde:
-* **$D$ (Días Computables):** Conjunto de jornadas de guerra concluidas (`is_closed=True`, `day_type='war'`) dentro de la ventana móvil de las últimas **14 jornadas** (~1 mes de guerras).
+* **D (Días Computables):** Conjunto de jornadas de guerra concluidas (`is_closed=True`, `day_type='war'`) dentro de la ventana móvil de las últimas **14 jornadas** (~1 mes de guerras).
 * **Jornada en curso:** La jornada actual abierta (`is_closed=False`) **no penaliza** la confiabilidad histórica; se monitorea en vivo de manera separada.
 * **Pases de Guerra (`WarPass`):** Si el jugador tiene una licencia aprobada en una fecha, dicho día se excluye completamente tanto del numerador como del denominador.
 * **Fecha de ingreso (`joined_at`):** No se evalúan días previos a la llegada del miembro al clan, salvo que ya existiera registro de ataque a su nombre.
@@ -78,8 +80,8 @@ Al cerrar cada jornada de guerra (10:00 UTC), se generan recomendaciones automá
 
 1. **Ascenso a Veterano (`promote_elder`):**
    * Rol actual: `member`.
-   * Cumplimiento perfecto: $16 / 16$ ataques en la River Race semanal.
-   * Rendimiento competitivo: $\ge 2000$ medallas acumuladas.
+   * Cumplimiento perfecto: 16 / 16 ataques en la River Race semanal.
+   * Rendimiento competitivo: ≥ 2000 medallas acumuladas.
    * Disciplina de guerra: Cero ataques a barco rival (`boat_attacks == 0`).
 2. **Descenso a Miembro (`demote_member`):**
    * Rol actual: `elder`.
