@@ -123,6 +123,18 @@ services:
     depends_on:
       - api
 
+  tunnel:
+    image: ngrok/ngrok:latest
+    container_name: cr_total_tunnel
+    restart: unless-stopped
+    profiles:
+      - tunnel
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
+    command: "http --url=${NGROK_DOMAIN:-} frontend:80"
+    depends_on:
+      - frontend
+
 volumes:
   postgres_data:
   redis_data:

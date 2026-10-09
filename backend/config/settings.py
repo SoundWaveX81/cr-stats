@@ -33,6 +33,9 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "we
 CSRF_TRUSTED_ORIGINS = env.list(
     "CSRF_TRUSTED_ORIGINS",
     default=[
+        "https://*.ngrok-free.app",
+        "https://*.ngrok.app",
+        "https://*.ngrok.io",
         "https://*.trycloudflare.com",
         "http://localhost",
         "http://127.0.0.1",
