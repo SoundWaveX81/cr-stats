@@ -84,7 +84,7 @@ class DiscordWebhookNotificationAdapter(BaseNotificationAdapter):
                 field_lines.append(f"• {s_icon} 👑 **{s.name}**: {f_str} pts")
             else:
                 d_str = f"{abs(s.diff):,}".replace(",", ".")
-                diff_label = f"+{d_str}" if s.diff > 0 else f"-{d_str}"
+                diff_label = f"+{d_str}" if s.diff > 0 else (f"-{d_str}" if s.diff < 0 else "=0")
                 field_lines.append(f"• {s_icon} **{s.name}**: {f_str} pts (`{diff_label}`)")
 
         return {

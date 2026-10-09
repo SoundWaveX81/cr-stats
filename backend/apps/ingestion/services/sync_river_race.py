@@ -5,6 +5,7 @@ from django.db import transaction
 
 from apps.clans.models import Clan, Member
 from apps.ingestion.client import ClashRoyaleClient
+from apps.wars.helpers import extract_clan_fame
 from apps.wars.models import RiverRace, WarAttackLog, WarDay
 
 
@@ -29,7 +30,7 @@ class SyncRiverRaceService:
         day_type = "war" if day_index >= 3 else "training"
 
         clan_data = data.get("clan", {})
-        clan_score = clan_data.get("fame", clan_data.get("clanScore", 0))
+        clan_score = extract_clan_fame(clan_data)
         season_id = data.get("seasonId")
         if not season_id:
             # 1. If today's war day was already created, reuse its race's season
@@ -94,12 +95,19 @@ class SyncRiverRaceService:
                     else:
                         season_id = 1
 
-        raw_clans = data.get("clans", [])
-        sorted_clans = sorted(
-            raw_clans,
-            key=lambda c: (
-                c.get("fame", 0),
-                c.get("clanScore", 0),
+        raw_clans = list(data.get("clans", []))
+        if clan_data and not any(c.get("tag") == clan.tag for c in raw_clans):
+            raw_clans.append(clan_data)
+
+        clans_with_fame = []
+        for c in raw_clans:
+            c_fame = extract_clan_fame(c)
+            clans_with_fame.append((c, c_fame))
+
+        clans_with_fame.sort(
+            key=lambda item: (
+                item[1],
+                item[0].get("clanScore", 0),
             ),
             reverse=True,
         )
@@ -108,11 +116,11 @@ class SyncRiverRaceService:
                 "rank": idx + 1,
                 "tag": c.get("tag"),
                 "name": c.get("name"),
-                "fame": c.get("fame", 0),
+                "fame": fame,
                 "clan_score": c.get("clanScore", 0),
                 "badge_id": c.get("badgeId"),
             }
-            for idx, c in enumerate(sorted_clans)
+            for idx, (c, fame) in enumerate(clans_with_fame)
         ]
 
         river_race, _ = RiverRace.objects.update_or_create(
@@ -223,7 +231,7 @@ class SyncRiverRaceService:
                 c = standing.get("clan", {})
                 if c.get("tag") == clan.tag:
                     clan_data = c
-                    clan_score = c.get("fame", c.get("clanScore", 0))
+                    clan_score = extract_clan_fame(c)
                     break
 
             if not clan_data:
@@ -238,7 +246,7 @@ class SyncRiverRaceService:
                     "rank": s.get("rank"),
                     "tag": s.get("clan", {}).get("tag"),
                     "name": s.get("clan", {}).get("name"),
-                    "fame": s.get("clan", {}).get("fame", 0),
+                    "fame": extract_clan_fame(s.get("clan", {})),
                     "clan_score": s.get("clan", {}).get("clanScore", 0),
                     "badge_id": s.get("clan", {}).get("badgeId"),
                 }

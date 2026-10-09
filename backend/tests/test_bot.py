@@ -59,7 +59,7 @@ class TestBotCommands:
         assert "Semana 2" in reply
 
     def test_cmd_pendientes_with_and_without_war_pass(self, sample_clan):
-        today = date.today()
+        today = sample_clan.get_current_war_date()
         race = RiverRace.objects.create(
             clan=sample_clan, season_id=2026, section_index=1, state="matched"
         )

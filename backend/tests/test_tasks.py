@@ -170,7 +170,7 @@ class TestCeleryTasks:
             river_race=race,
             day_type="war",
             day_index=1,
-            date=date.today() - timedelta(days=1),
+            date=clan.get_current_war_date() - timedelta(days=1),
             is_closed=False,
         )
         # m1 did only 1 attack (fails 4 attack requirement)

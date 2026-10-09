@@ -270,10 +270,27 @@ export const CurrentWarPage: React.FC = () => {
                       <span className="font-mono text-xs font-bold text-slate-300">{c.clan_score}</span>
                     </div>
                     <div>
-                      <span className="font-extrabold text-sm text-amber-400">
-                        {c.fame.toLocaleString('es-ES')}
-                      </span>
-                      <span className="text-[10px] text-slate-400 ml-1">medallas</span>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className="font-extrabold text-sm text-amber-400">
+                          {c.fame.toLocaleString('es-ES')}
+                        </span>
+                        <span className="text-[10px] text-slate-400">medallas</span>
+                      </div>
+                      {!isMyClan && c.diff !== undefined && (
+                        <div className="text-[11px] font-mono leading-none mt-0.5">
+                          {c.diff > 0 ? (
+                            <span className="text-rose-400 font-bold" title="Puntos por delante de tu clan">
+                              +{c.diff.toLocaleString('es-ES')}
+                            </span>
+                          ) : c.diff < 0 ? (
+                            <span className="text-emerald-400 font-medium" title="Puntos por detrás de tu clan">
+                              -{Math.abs(c.diff).toLocaleString('es-ES')}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400" title="Mismos puntos que tu clan">=0</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -310,7 +327,16 @@ export const CurrentWarPage: React.FC = () => {
             <div className="flex items-center gap-2 text-emerald-300">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               <span>
-                👑 ¡Tu clan se encuentra actualmente en el <strong>1º Puesto</strong> de la River Race!
+                👑 ¡Tu clan se encuentra actualmente en el <strong>1º Puesto</strong> de la River Race{
+                  (() => {
+                    const secondPlace = competingClans.find((cl) => cl.rank === 2);
+                    if (secondPlace) {
+                      const lead = Math.max(0, clan.fame - secondPlace.fame);
+                      return ` con una ventaja de ${lead.toLocaleString('es-ES')} medallas sobre el 2º (${secondPlace.name})`;
+                    }
+                    return '';
+                  })()
+                }!
               </span>
             </div>
           )}

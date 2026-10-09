@@ -91,7 +91,7 @@ class TelegramNotificationAdapter(BaseNotificationAdapter):
                 lines.append(f"• {s_icon} 👑 <b>{name_esc}</b>: {f_str} pts")
             else:
                 d_str = f"{abs(s.diff):,}".replace(",", ".")
-                diff_label = f"+{d_str}" if s.diff > 0 else f"-{d_str}"
+                diff_label = f"+{d_str}" if s.diff > 0 else (f"-{d_str}" if s.diff < 0 else "=0")
                 lines.append(f"• {s_icon} <b>{name_esc}</b>: {f_str} pts (<i>{diff_label}</i>)")
 
         lines.append("")

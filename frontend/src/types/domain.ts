@@ -73,6 +73,7 @@ export interface CompetingClan {
   fame: number;
   clan_score: number;
   is_user_clan: boolean;
+  diff?: number;
 }
 
 export interface WarParticipant {

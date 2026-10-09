@@ -6,6 +6,7 @@ from django.conf import settings
 
 from apps.clans.models import Clan, Member, WarPass
 from apps.ingestion.client import ClashRoyaleClient
+from apps.wars.helpers import extract_clan_fame
 from apps.wars.models import RiverRace, WarAttackLog, WarDay
 
 
@@ -52,27 +53,35 @@ class CurrentWarService:
 
         # Competing clans
         raw_clans = list(data.get("clans", []))
-        if not any(c.get("tag") == clan.tag for c in raw_clans):
-            raw_clans.append(data.get("clan", {}))
+        clan_data = data.get("clan", {})
+        if clan_data and not any(c.get("tag") == clan.tag for c in raw_clans):
+            raw_clans.append(clan_data)
 
-        # Rank clans by fame desc, then clanScore desc
-        ranked = sorted(
-            raw_clans,
-            key=lambda x: (x.get("fame", 0), x.get("clanScore", 0)),
+        clans_with_fame = []
+        for c in raw_clans:
+            c_fame = extract_clan_fame(c)
+            clans_with_fame.append((c, c_fame))
+
+        # Rank clans by true war fame desc, then clanScore desc
+        clans_with_fame.sort(
+            key=lambda item: (item[1], item[0].get("clanScore", 0)),
             reverse=True,
         )
 
-        clans_list = []
         user_rank = 1
         user_fame = 0
-        first_place_fame = ranked[0].get("fame", 0) if ranked else 0
+        first_place_fame = clans_with_fame[0][1] if clans_with_fame else 0
 
-        for idx, rc in enumerate(ranked, 1):
-            is_me = rc.get("tag") == clan.tag
-            fame = rc.get("fame", 0)
-            if is_me:
+        for idx, (rc, fame) in enumerate(clans_with_fame, 1):
+            if rc.get("tag") == clan.tag:
                 user_rank = idx
                 user_fame = fame
+                break
+
+        clans_list = []
+        for idx, (rc, fame) in enumerate(clans_with_fame, 1):
+            is_me = rc.get("tag") == clan.tag
+            diff = fame - user_fame
             clans_list.append(
                 {
                     "rank": idx,
@@ -82,6 +91,7 @@ class CurrentWarService:
                     "fame": fame,
                     "clan_score": rc.get("clanScore", 0),
                     "is_user_clan": is_me,
+                    "diff": diff,
                 }
             )
 
@@ -221,7 +231,53 @@ class CurrentWarService:
         total_attacks_possible = total_members_count * 4
         total_attacks_pending = max(0, total_attacks_possible - total_attacks_used)
         potential_points_max = total_attacks_pending * 900
+        clans_list = []
+        user_rank = 1
+        first_place_fame = user_fame
+
+        if race and race.standings:
+            target_entry = next((s for s in race.standings if s.get("tag") == clan.tag), None)
+            if target_entry:
+                user_fame = target_entry.get("fame", user_fame)
+                user_rank = target_entry.get("rank", 1)
+
+            first_place_fame = (
+                race.standings[0].get("fame", user_fame) if race.standings else user_fame
+            )
+
+            for s in race.standings:
+                s_fame = s.get("fame", 0)
+                is_me = s.get("tag") == clan.tag
+                diff = s_fame - user_fame
+                clans_list.append(
+                    {
+                        "rank": s.get("rank", 1),
+                        "tag": s.get("tag", ""),
+                        "name": s.get("name", "Clan"),
+                        "badge_id": s.get("badge_id", 0),
+                        "fame": s_fame,
+                        "clan_score": s.get("clan_score", 0),
+                        "is_user_clan": is_me,
+                        "diff": diff,
+                    }
+                )
+        else:
+            clans_list = [
+                {
+                    "rank": 1,
+                    "tag": clan.tag,
+                    "name": clan.name,
+                    "badge_id": 0,
+                    "fame": user_fame,
+                    "clan_score": clan.medal_threshold,
+                    "is_user_clan": True,
+                    "diff": 0,
+                }
+            ]
+
         potential_max_fame = user_fame + potential_points_max
+        gap_to_first = max(0, first_place_fame - user_fame)
+        wins_needed_for_first = math.ceil(gap_to_first / 900) if gap_to_first > 0 else 0
 
         return {
             "clan": {
@@ -229,8 +285,8 @@ class CurrentWarService:
                 "name": clan.name,
                 "fame": user_fame,
                 "clan_score": clan.medal_threshold,
-                "position": 1,
-                "total_clans": 1,
+                "position": user_rank,
+                "total_clans": len(clans_list),
             },
             "race": {
                 "state": state,
@@ -246,21 +302,11 @@ class CurrentWarService:
                 "total_attacks_pending": total_attacks_pending,
                 "potential_points_max": potential_points_max,
                 "potential_max_fame": potential_max_fame,
-                "first_place_fame": user_fame,
-                "gap_to_first": 0,
-                "wins_needed_for_first": 0,
+                "first_place_fame": first_place_fame,
+                "gap_to_first": gap_to_first,
+                "wins_needed_for_first": wins_needed_for_first,
             },
-            "clans": [
-                {
-                    "rank": 1,
-                    "tag": clan.tag,
-                    "name": clan.name,
-                    "badge_id": 0,
-                    "fame": user_fame,
-                    "clan_score": clan.medal_threshold,
-                    "is_user_clan": True,
-                }
-            ],
+            "clans": clans_list,
             "participants": participants_list,
         }
 
