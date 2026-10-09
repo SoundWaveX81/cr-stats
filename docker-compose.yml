@@ -131,7 +131,11 @@ services:
       - tunnel
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
-    command: "http --url=${NGROK_DOMAIN:-} frontend:80"
+    command:
+      - "http"
+      - "--url=${NGROK_DOMAIN:-}"
+      - "--log=stdout"
+      - "http://frontend:80"
     depends_on:
       - frontend
 
