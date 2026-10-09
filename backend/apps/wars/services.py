@@ -321,8 +321,13 @@ class MemberWarHistoryService:
             race_boat_attacks = 0
 
             days_payload = []
+            seen_day_indices = set()
             for log in r_logs:
                 w_day = log.war_day
+                if w_day.day_index in seen_day_indices:
+                    continue
+                seen_day_indices.add(w_day.day_index)
+
                 has_pass = any(wp.start_date <= w_day.date <= wp.end_date for wp in war_passes)
                 pass_reason = next(
                     (wp.reason for wp in war_passes if wp.start_date <= w_day.date <= wp.end_date),
@@ -377,6 +382,8 @@ class MemberWarHistoryService:
                     "days": days_payload,
                 }
             )
+
+        races_payload.sort(key=lambda r: (r["season_id"], r["section_index"]), reverse=True)
 
         attendance_rate = (
             min(100.0, round(total_attacks_used / total_attacks_expected * 100, 2))

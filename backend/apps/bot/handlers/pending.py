@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from datetime import timezone as dt_timezone
 
 from apps.clans.models import Clan
@@ -20,7 +20,7 @@ def handle_pending(args: list[str]) -> str:
         if not clan:
             return "❌ No hay clanes activos registrados en el sistema."
 
-    today = date.today()
+    today = clan.get_current_war_date()
     open_war_day = WarDay.objects.filter(
         river_race__clan=clan,
         day_type="war",

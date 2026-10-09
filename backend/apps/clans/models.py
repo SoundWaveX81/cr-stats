@@ -1,6 +1,7 @@
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from django.db import models
+from django.utils import timezone
 
 
 class Clan(models.Model):
@@ -33,6 +34,21 @@ class Clan(models.Model):
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
+
+    def get_reset_hour(self) -> int:
+        if not self.war_day_reset_time:
+            return 10
+        if hasattr(self.war_day_reset_time, "hour"):
+            return self.war_day_reset_time.hour
+        return int(str(self.war_day_reset_time).split(":")[0])
+
+    def get_current_war_date(self, now: datetime | None = None) -> date:
+        if now is None:
+            now = timezone.now()
+        reset_hour = self.get_reset_hour()
+        if now.hour < reset_hour:
+            return (now - timedelta(days=1)).date()
+        return now.date()
 
     def __str__(self) -> str:
         return f"{self.name} ({self.tag})"

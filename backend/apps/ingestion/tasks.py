@@ -102,12 +102,14 @@ def task_send_pending_attack_reminders(
         except Exception as exc:
             logger.warning(f"Could not live sync clan {clan.tag} before reminders: {exc}")
 
+        effective_war_date = clan.get_current_war_date(now_utc)
+
         # Find today's open war day
         open_war_day = WarDay.objects.filter(
             river_race__clan=clan,
             day_type="war",
             is_closed=False,
-            date=today,
+            date=effective_war_date,
         ).first()
 
         if not open_war_day:

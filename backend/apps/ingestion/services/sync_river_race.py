@@ -17,7 +17,7 @@ class SyncRiverRaceService:
     @transaction.atomic
     def sync(self, clan: Clan, target_date: date | None = None) -> tuple[RiverRace, WarDay]:
         if target_date is None:
-            target_date = date.today()
+            target_date = clan.get_current_war_date()
 
         data = self.client.get_current_river_race(clan.tag)
 
@@ -30,7 +30,69 @@ class SyncRiverRaceService:
 
         clan_data = data.get("clan", {})
         clan_score = clan_data.get("fame", clan_data.get("clanScore", 0))
-        season_id = data.get("seasonId", 1)
+        season_id = data.get("seasonId")
+        if not season_id:
+            # 1. If today's war day was already created, reuse its race's season
+            existing_race_today = (
+                RiverRace.objects.filter(clan=clan, war_days__date=target_date)
+                .exclude(season_id=1)
+                .first()
+            )
+            if existing_race_today:
+                season_id = existing_race_today.season_id
+            else:
+                # 2. Check if an active race is currently in progress
+                active_race = (
+                    RiverRace.objects.filter(clan=clan)
+                    .exclude(state="clans_finished")
+                    .exclude(season_id=1)
+                    .order_by("-season_id", "-section_index")
+                    .first()
+                )
+                if active_race:
+                    if active_race.section_index == section_index:
+                        season_id = active_race.season_id
+                    else:
+                        # Week transitioned
+                        active_race.state = "clans_finished"
+                        active_race.war_days.filter(is_closed=False).update(is_closed=True)
+                        active_race.save(update_fields=["state"])
+                        try:
+                            self.sync_race_history(clan)
+                        except Exception:
+                            pass
+
+                        if section_index > active_race.section_index:
+                            season_id = active_race.season_id
+                        else:
+                            season_id = active_race.season_id + 1
+                else:
+                    # 3. No active race; deduce from latest completed race
+                    latest_completed = (
+                        RiverRace.objects.filter(clan=clan, state="clans_finished")
+                        .exclude(season_id=1)
+                        .order_by("-season_id", "-section_index")
+                        .first()
+                    )
+                    if not latest_completed:
+                        try:
+                            self.sync_race_history(clan)
+                            latest_completed = (
+                                RiverRace.objects.filter(clan=clan, state="clans_finished")
+                                .exclude(season_id=1)
+                                .order_by("-season_id", "-section_index")
+                                .first()
+                            )
+                        except Exception:
+                            pass
+
+                    if latest_completed:
+                        if section_index > latest_completed.section_index:
+                            season_id = latest_completed.season_id
+                        else:
+                            season_id = latest_completed.season_id + 1
+                    else:
+                        season_id = 1
 
         raw_clans = data.get("clans", [])
         sorted_clans = sorted(
@@ -66,14 +128,32 @@ class SyncRiverRaceService:
 
         war_day, _ = WarDay.objects.update_or_create(
             river_race=river_race,
-            date=target_date,
+            day_index=day_index,
             defaults={
-                "day_index": day_index,
+                "date": target_date,
                 "day_type": day_type,
             },
         )
 
+        # Ensure any earlier war days in this race are marked closed
+        river_race.war_days.filter(day_index__lt=day_index, is_closed=False).update(is_closed=True)
+
         participants = clan_data.get("participants", [])
+
+        # In Clash Royale API, fame and boatAttacks are cumulative totals for the participant
+        # across the entire river race. Prefetch previous war day logs in this race to store
+        # true daily incremental medals and boat attacks.
+        prev_logs_by_member: dict[str, dict[str, int]] = {}
+        for prev_log in WarAttackLog.objects.filter(
+            war_day__river_race=river_race,
+            war_day__day_index__lt=day_index,
+        ).values("member_id", "medals_earned", "boat_attacks_count"):
+            m_id = prev_log["member_id"]
+            if m_id not in prev_logs_by_member:
+                prev_logs_by_member[m_id] = {"medals": 0, "boat": 0}
+            prev_logs_by_member[m_id]["medals"] += prev_log["medals_earned"]
+            prev_logs_by_member[m_id]["boat"] += prev_log["boat_attacks_count"]
+
         for p in participants:
             raw_tag = p["tag"]
             clean_tag = raw_tag.strip().upper()
@@ -92,8 +172,12 @@ class SyncRiverRaceService:
 
             attacks_used = p.get("decksUsedToday", p.get("decksUsed", 0))
             decks_used = p.get("decksUsed", 0)
-            fame = p.get("fame", 0)
-            boat_attacks = p.get("boatAttacks", 0)
+            cum_fame = p.get("fame", 0)
+            cum_boat_attacks = p.get("boatAttacks", 0)
+
+            prev_data = prev_logs_by_member.get(clean_tag, {"medals": 0, "boat": 0})
+            daily_medals = max(0, cum_fame - prev_data["medals"])
+            daily_boat = max(0, cum_boat_attacks - prev_data["boat"])
 
             WarAttackLog.objects.update_or_create(
                 war_day=war_day,
@@ -101,8 +185,8 @@ class SyncRiverRaceService:
                 defaults={
                     "attacks_used": attacks_used,
                     "decks_used": decks_used,
-                    "medals_earned": fame,
-                    "boat_attacks_count": boat_attacks,
+                    "medals_earned": daily_medals,
+                    "boat_attacks_count": daily_boat,
                 },
             )
 
@@ -145,6 +229,22 @@ class SyncRiverRaceService:
             if not clan_data:
                 continue
 
+            raw_standings = sorted(
+                item.get("standings", []),
+                key=lambda s: s.get("rank", 999),
+            )
+            standings = [
+                {
+                    "rank": s.get("rank"),
+                    "tag": s.get("clan", {}).get("tag"),
+                    "name": s.get("clan", {}).get("name"),
+                    "fame": s.get("clan", {}).get("fame", 0),
+                    "clan_score": s.get("clan", {}).get("clanScore", 0),
+                    "badge_id": s.get("clan", {}).get("badgeId"),
+                }
+                for s in raw_standings
+            ]
+
             river_race, _ = RiverRace.objects.update_or_create(
                 clan=clan,
                 season_id=season_id,
@@ -152,6 +252,7 @@ class SyncRiverRaceService:
                 defaults={
                     "state": "clans_finished",
                     "clan_score": clan_score,
+                    "standings": standings,
                 },
             )
             races_synced += 1

@@ -234,7 +234,7 @@ def create_discord_bot() -> commands.Bot:
             if not clan:
                 return None, None, []
 
-            today = date.today()
+            today = clan.get_current_war_date()
             open_day = WarDay.objects.filter(
                 river_race__clan=clan, day_type="war", is_closed=False, date=today
             ).first()

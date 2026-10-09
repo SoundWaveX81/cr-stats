@@ -91,7 +91,11 @@ class WarDay(models.Model):
             models.UniqueConstraint(
                 fields=["river_race", "date"],
                 name="unique_race_date",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["river_race", "day_index"],
+                name="unique_race_day_index",
+            ),
         ]
         ordering = ["-date"]
 

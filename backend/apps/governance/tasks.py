@@ -1,5 +1,4 @@
 import logging
-from datetime import date
 
 from celery import shared_task
 
@@ -23,14 +22,14 @@ def task_evaluate_war_day_governance(clan_tag: str | None = None) -> int:
     engine = GovernanceEngineService()
     dispatcher = NotificationDispatcher()
     total_actions_generated = 0
-    today = date.today()
 
     for clan in clans:
+        effective_today = clan.get_current_war_date()
         open_war_days = WarDay.objects.filter(
             river_race__clan=clan,
             day_type="war",
             is_closed=False,
-            date__lt=today,
+            date__lt=effective_today,
         ).order_by("date")
 
         for war_day in open_war_days:

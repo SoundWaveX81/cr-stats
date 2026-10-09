@@ -1,8 +1,9 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from datetime import timezone as dt_timezone
 
 import pytest
 from django.contrib import admin
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 
 from apps.clans.models import Clan, Member, WarPass
 from apps.governance.models import RosterAction
@@ -52,6 +53,18 @@ class TestClanAndMemberModels:
         assert war_pass.is_active_on(today + timedelta(days=3)) is False
         assert "Arquera" in str(war_pass)
 
+    def test_clan_effective_war_date(self):
+        clan = Clan.objects.create(tag="#WARCLAN", name="Estrategas", war_day_reset_time="10:00:00")
+        assert clan.get_reset_hour() == 10
+
+        # Before 10:00 UTC (e.g. 08:30 UTC): war date belongs to yesterday
+        dt_morning = datetime(2026, 10, 5, 8, 30, tzinfo=dt_timezone.utc)
+        assert clan.get_current_war_date(dt_morning) == date(2026, 10, 4)
+
+        # At/after 10:00 UTC (e.g. 10:05 UTC): war date belongs to today
+        dt_afternoon = datetime(2026, 10, 5, 10, 5, tzinfo=dt_timezone.utc)
+        assert clan.get_current_war_date(dt_afternoon) == date(2026, 10, 5)
+
 
 @pytest.mark.django_db
 class TestWarModels:
@@ -100,12 +113,21 @@ class TestWarModels:
         assert war_day.is_closed is False
         assert "Guerra D3" in str(war_day)
 
-        with pytest.raises(IntegrityError):
-            WarDay.objects.create(
-                river_race=race,
-                date=today,
-                day_index=4,
-            )
+        with transaction.atomic():
+            with pytest.raises(IntegrityError):
+                WarDay.objects.create(
+                    river_race=race,
+                    date=today,
+                    day_index=4,
+                )
+
+        with transaction.atomic():
+            with pytest.raises(IntegrityError):
+                WarDay.objects.create(
+                    river_race=race,
+                    date=today + timedelta(days=1),
+                    day_index=3,
+                )
 
     def test_war_attack_log_and_unique_constraint(self):
         clan = Clan.objects.create(tag="#ATTACKCLAN", name="Gladiadores")

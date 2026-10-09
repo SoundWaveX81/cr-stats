@@ -84,7 +84,6 @@ class Command(BaseCommand):
                 self.stdout.write(
                     "Sincronizando y forzando envío de alerta de ataques pendientes..."
                 )
-                from datetime import date
 
                 from apps.ingestion.services import SyncRiverRaceService
                 from apps.notifications.adapters.base import PendingAttackItem
@@ -97,10 +96,10 @@ class Command(BaseCommand):
                         self.style.WARNING(f"Aviso: no se pudo sincronizar en vivo: {exc}")
                     )
 
-                today = date.today()
+                effective_today = clan.get_current_war_date()
                 open_war_day = (
                     WarDay.objects.filter(
-                        river_race__clan=clan, day_type="war", is_closed=False, date=today
+                        river_race__clan=clan, day_type="war", is_closed=False, date=effective_today
                     ).first()
                     or WarDay.objects.filter(river_race__clan=clan, day_type="war")
                     .order_by("-date")

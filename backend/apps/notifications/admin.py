@@ -75,8 +75,6 @@ class NotificationChannelAdmin(admin.ModelAdmin):
 
     @admin.action(description="⚠️ Forzar envío de alerta de ataques pendientes ahora")
     def force_pending_attacks_alert(self, request, queryset):
-        from datetime import date
-
         from apps.ingestion.services.sync_river_race import SyncRiverRaceService
         from apps.notifications.adapters.base import PendingAttackItem
         from apps.wars.models import WarAttackLog, WarDay
@@ -85,7 +83,6 @@ class NotificationChannelAdmin(admin.ModelAdmin):
         failures = []
         sync_race_service = SyncRiverRaceService()
         synced_clans = set()
-        today = date.today()
 
         for channel in queryset:
             clan = channel.clan
@@ -105,9 +102,10 @@ class NotificationChannelAdmin(admin.ModelAdmin):
                         level=messages.WARNING,
                     )
 
+            effective_today = clan.get_current_war_date()
             open_war_day = (
                 WarDay.objects.filter(
-                    river_race__clan=clan, day_type="war", is_closed=False, date=today
+                    river_race__clan=clan, day_type="war", is_closed=False, date=effective_today
                 ).first()
                 or WarDay.objects.filter(river_race__clan=clan, day_type="war")
                 .order_by("-date")

@@ -346,17 +346,23 @@ export const PlayerWarHistoryModal: React.FC<PlayerWarHistoryModalProps> = ({
                               {/* Race Attack Count */}
                               <div className="flex items-center gap-1.5 font-mono">
                                 <span className="text-slate-400">Ataques:</span>
-                                <span
-                                  className={`font-bold px-2 py-0.5 rounded-md border ${
-                                    isComplete
-                                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                                      : isZero
-                                      ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                                      : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                                  }`}
-                                >
-                                  {race.total_attacks} / {race.max_attacks}
-                                </span>
+                                {race.max_attacks > 0 ? (
+                                  <span
+                                    className={`font-bold px-2 py-0.5 rounded-md border ${
+                                      isComplete
+                                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                        : isZero
+                                        ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                                        : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                    }`}
+                                  >
+                                    {race.total_attacks} / {race.max_attacks}
+                                  </span>
+                                ) : (
+                                  <span className="font-semibold px-2 py-0.5 rounded-md border bg-slate-800/80 text-slate-300 border-slate-700">
+                                    {race.total_attacks} atq.
+                                  </span>
+                                )}
                               </div>
 
                               {/* Race Medals */}
