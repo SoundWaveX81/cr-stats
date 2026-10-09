@@ -139,6 +139,56 @@ services:
     depends_on:
       - frontend
 
+  discord_bot:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cr_total_discord_bot
+    restart: unless-stopped
+    command: python manage.py run_discord_bot
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-docker-dev-cr-total-2026}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-cr_user}:${POSTGRES_PASSWORD:-cr_password}@db:5432/${POSTGRES_DB:-cr_total_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - CLASH_ROYALE_API_KEY=${API_KEY:-}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  telegram_bot:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cr_total_telegram_bot
+    restart: unless-stopped
+    profiles:
+      - telegram-poll
+    command: python manage.py run_telegram_bot
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-docker-dev-cr-total-2026}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-cr_user}:${POSTGRES_PASSWORD:-cr_password}@db:5432/${POSTGRES_DB:-cr_total_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CLASH_ROYALE_API_KEY=${API_KEY:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   redis_data:
