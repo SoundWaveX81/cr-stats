@@ -170,8 +170,6 @@ services:
       dockerfile: Dockerfile
     container_name: cr_total_telegram_bot
     restart: unless-stopped
-    profiles:
-      - telegram-poll
     command: python manage.py run_telegram_bot
     volumes:
       - ./backend:/app
