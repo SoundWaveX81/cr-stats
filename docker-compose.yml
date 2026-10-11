@@ -127,8 +127,6 @@ services:
     image: ngrok/ngrok:latest
     container_name: cr_total_tunnel
     restart: unless-stopped
-    profiles:
-      - tunnel
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
     command:
