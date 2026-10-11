@@ -231,3 +231,51 @@ class TestTelegramWebhookView:
         sent_body = route.calls.last.request.read().decode("utf-8")
         assert "CR Total" in sent_body
         assert "88888" in sent_body
+
+
+@pytest.mark.django_db
+class TestTelegramWebhookManagement:
+    @override_settings(TELEGRAM_BOT_TOKEN="123456:FAKE_TOKEN")
+    @respx.mock
+    def test_telegram_client_delete_webhook(self):
+        from apps.bot.telegram_client import TelegramClient
+
+        del_route = respx.post("https://api.telegram.org/bot123456:FAKE_TOKEN/deleteWebhook").mock(
+            return_value=httpx.Response(200, json={"ok": True, "result": True})
+        )
+
+        client = TelegramClient()
+        success = client.delete_webhook(drop_pending_updates=True)
+        assert success is True
+        assert del_route.called
+
+    @override_settings(TELEGRAM_BOT_TOKEN="123456:FAKE_TOKEN")
+    @respx.mock
+    def test_telegram_client_get_webhook_info(self):
+        from apps.bot.telegram_client import TelegramClient
+
+        info_route = respx.get("https://api.telegram.org/bot123456:FAKE_TOKEN/getWebhookInfo").mock(
+            return_value=httpx.Response(
+                200, json={"ok": True, "result": {"url": "https://example.com/wh"}}
+            )
+        )
+
+        client = TelegramClient()
+        info = client.get_webhook_info()
+        assert info.get("url") == "https://example.com/wh"
+        assert info_route.called
+
+    @override_settings(TELEGRAM_BOT_TOKEN="123456:FAKE_TOKEN")
+    @respx.mock
+    def test_telegram_webhook_command_delete(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        respx.post("https://api.telegram.org/bot123456:FAKE_TOKEN/deleteWebhook").mock(
+            return_value=httpx.Response(200, json={"ok": True, "result": True})
+        )
+
+        out = StringIO()
+        call_command("telegram_webhook", delete=True, stdout=out)
+        assert "eliminado correctamente" in out.getvalue()

@@ -45,3 +45,36 @@ class TelegramClient:
         except Exception as exc:
             logger.exception(f"Exception sending Telegram message to chat {chat_id}: {exc}")
             return False
+
+    def get_webhook_info(self) -> dict:
+        """Query Telegram for current webhook registration details."""
+        if not self.token:
+            return {}
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                res = client.get(f"{self.base_url}/getWebhookInfo")
+                if res.status_code == 200:
+                    return res.json().get("result", {})
+                logger.warning(f"getWebhookInfo failed: {res.status_code} - {res.text}")
+                return {"error": res.text, "status_code": res.status_code}
+        except Exception as exc:
+            logger.error(f"Network error calling getWebhookInfo: {exc}")
+            return {"error": str(exc)}
+
+    def delete_webhook(self, drop_pending_updates: bool = False) -> bool:
+        """Delete configured webhook to allow getUpdates / long-polling."""
+        if not self.token:
+            return False
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                res = client.post(
+                    f"{self.base_url}/deleteWebhook",
+                    json={"drop_pending_updates": drop_pending_updates},
+                )
+                if res.status_code == 200:
+                    return res.json().get("ok", False)
+                logger.warning(f"deleteWebhook failed: {res.status_code} - {res.text}")
+                return False
+        except Exception as exc:
+            logger.error(f"Network error calling deleteWebhook: {exc}")
+            return False

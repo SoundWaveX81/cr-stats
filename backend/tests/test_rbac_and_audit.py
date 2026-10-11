@@ -58,6 +58,7 @@ def clan_admin_user(clan1, member1):
     user = User.objects.create_user(
         username="clan1_admin", email="admin1@example.com", password="clanpassword123"
     )
+    UserProfile.objects.create(user=user, clan=clan1, role="clan_admin", player=member1)
     user.refresh_from_db()
     return user
 
