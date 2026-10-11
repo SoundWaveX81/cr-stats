@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Shield, AlertCircle, Loader2 } from 'lucide-react';
 import { clansApi } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import type { Clan, Member } from '../types/domain';
 import { ClanHeaderCard } from '../components/clans/ClanHeaderCard';
 import { RosterTable } from '../components/clans/RosterTable';
@@ -9,6 +10,7 @@ import { RosterTable } from '../components/clans/RosterTable';
 export const RosterPage: React.FC = () => {
   const { clanTag: urlClanTag } = useParams<{ clanTag?: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [clans, setClans] = useState<Clan[]>([]);
   const [selectedClan, setSelectedClan] = useState<Clan | null>(null);
@@ -21,6 +23,15 @@ export const RosterPage: React.FC = () => {
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
 
+  // Enforce clan scoping for non-superusers
+  useEffect(() => {
+    if (user && !user.is_superuser && user.clan_tag) {
+      if (urlClanTag && urlClanTag.toUpperCase() !== user.clan_tag.toUpperCase()) {
+        navigate(`/clans/${encodeURIComponent(user.clan_tag)}`, { replace: true });
+      }
+    }
+  }, [user, urlClanTag, navigate]);
+
   // Load all available clans
   useEffect(() => {
     const loadClans = async () => {
@@ -32,8 +43,12 @@ export const RosterPage: React.FC = () => {
         setClans(clanList);
 
         if (clanList.length > 0) {
-          const matchedClan = urlClanTag
-            ? clanList.find((c) => c.tag.toUpperCase() === urlClanTag.toUpperCase()) || clanList[0]
+          const targetTag = (!user?.is_superuser && user?.clan_tag)
+            ? user.clan_tag
+            : urlClanTag;
+
+          const matchedClan = targetTag
+            ? clanList.find((c) => c.tag.toUpperCase() === targetTag.toUpperCase()) || clanList[0]
             : clanList[0];
           setSelectedClan(matchedClan);
         }
@@ -45,7 +60,7 @@ export const RosterPage: React.FC = () => {
     };
 
     loadClans();
-  }, [urlClanTag]);
+  }, [urlClanTag, user]);
 
   // Load members whenever selectedClan changes
   const loadMembers = useCallback(async (tag: string) => {
@@ -131,8 +146,8 @@ export const RosterPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Clan Selector Bar (if multi-clan) */}
-      {clans.length > 1 && (
+      {/* Clan Selector Bar (only for global superusers if multiple clans exist) */}
+      {user?.is_superuser && clans.length > 1 && (
         <div className="flex items-center justify-between bg-slate-900/60 p-3 rounded-xl border border-slate-800">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
             Clan Seleccionado:
@@ -165,10 +180,12 @@ export const RosterPage: React.FC = () => {
       {/* Members Roster Table */}
       <RosterTable
         members={members}
+        currentUserPlayerTag={user?.player_tag || undefined}
         onGrantWarPass={(member) => {
           navigate(`/war-passes?member=${encodeURIComponent(member.tag)}&clan=${encodeURIComponent(selectedClan?.tag || '')}`);
         }}
       />
+
     </div>
   );
 };

@@ -1,10 +1,16 @@
 from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.bot.views import telegram_webhook_view
-from apps.clans.views import ClanViewSet, MemberViewSet, WarPassViewSet
+from apps.clans.views import (
+    ClanViewSet,
+    CustomTokenObtainPairView,
+    MemberViewSet,
+    WarPassViewSet,
+    me_view,
+)
 from apps.governance.views import RosterActionViewSet
 
 from .views import health_check
@@ -18,8 +24,9 @@ router.register(r"roster-actions", RosterActionViewSet, basename="roster-action"
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health_check, name="health-check"),
-    path("api/token/", TokenObtainPairView.as_view(), name="token-obtain"),
+    path("api/token/", CustomTokenObtainPairView.as_view(), name="token-obtain"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
+    path("api/me/", me_view, name="auth-me"),
     path("api/bot/telegram/webhook/", telegram_webhook_view, name="telegram-webhook"),
     path("api/", include(router.urls)),
 ]

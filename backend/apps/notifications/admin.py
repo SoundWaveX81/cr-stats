@@ -33,14 +33,66 @@ class NotificationChannelAdmin(admin.ModelAdmin):
                 ),
             },
         ),
-        (
-            "Auditoría",
-            {
-                "fields": ("created_at", "updated_at"),
-                "classes": ("collapse",),
-            },
-        ),
     )
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if hasattr(request.user, "profile") and request.user.profile.clan:
+            return qs.filter(clan=request.user.profile.clan)
+        return qs.none()
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if (
+            not request.user.is_superuser
+            and hasattr(request.user, "profile")
+            and request.user.profile.clan
+        ):
+            if db_field.name == "clan":
+                from apps.clans.models import Clan
+
+                kwargs["queryset"] = Clan.objects.filter(tag=request.user.profile.clan.tag)
+                kwargs["initial"] = request.user.profile.clan
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        if (
+            not request.user.is_superuser
+            and hasattr(request.user, "profile")
+            and request.user.profile.clan
+        ):
+            obj.clan = request.user.profile.clan
+        super().save_model(request, obj, form, change)
+        from apps.clans.audit import log_audit_action, serialize_changes
+
+        log_audit_action(
+            user=request.user,
+            clan=obj.clan,
+            action="UPDATE" if change else "CREATE",
+            source="admin",
+            model_name="notificationchannel",
+            object_id=str(obj.pk),
+            object_repr=str(obj),
+            changes=serialize_changes(form.cleaned_data),
+            request=request,
+        )
+
+    def delete_model(self, request, obj):
+        from apps.clans.audit import log_audit_action
+
+        clan = obj.clan
+        log_audit_action(
+            user=request.user,
+            clan=clan,
+            action="DELETE",
+            source="admin",
+            model_name="notificationchannel",
+            object_id=str(obj.pk),
+            object_repr=str(obj),
+            request=request,
+        )
+        super().delete_model(request, obj)
 
     @admin.action(description="🔔 Enviar mensaje de prueba a los canales seleccionados")
     def send_test_message(self, request, queryset):
@@ -237,3 +289,62 @@ class WarAlertPreferenceAdmin(admin.ModelAdmin):
         if not hours:
             return "Ninguna (Alertas desactivadas)"
         return ", ".join(f"{h:02d}:00 UTC" for h in hours)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if hasattr(request.user, "profile") and request.user.profile.clan:
+            return qs.filter(clan=request.user.profile.clan)
+        return qs.none()
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if (
+            not request.user.is_superuser
+            and hasattr(request.user, "profile")
+            and request.user.profile.clan
+        ):
+            if db_field.name == "clan":
+                from apps.clans.models import Clan
+
+                kwargs["queryset"] = Clan.objects.filter(tag=request.user.profile.clan.tag)
+                kwargs["initial"] = request.user.profile.clan
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        if (
+            not request.user.is_superuser
+            and hasattr(request.user, "profile")
+            and request.user.profile.clan
+        ):
+            obj.clan = request.user.profile.clan
+        super().save_model(request, obj, form, change)
+        from apps.clans.audit import log_audit_action, serialize_changes
+
+        log_audit_action(
+            user=request.user,
+            clan=obj.clan,
+            action="UPDATE" if change else "CREATE",
+            source="admin",
+            model_name="waralertpreference",
+            object_id=str(obj.pk),
+            object_repr=str(obj),
+            changes=serialize_changes(form.cleaned_data),
+            request=request,
+        )
+
+    def delete_model(self, request, obj):
+        from apps.clans.audit import log_audit_action
+
+        clan = obj.clan
+        log_audit_action(
+            user=request.user,
+            clan=clan,
+            action="DELETE",
+            source="admin",
+            model_name="waralertpreference",
+            object_id=str(obj.pk),
+            object_repr=str(obj),
+            request=request,
+        )
+        super().delete_model(request, obj)

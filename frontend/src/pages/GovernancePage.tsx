@@ -1,18 +1,29 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Award, Filter, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { rosterActionsApi, clansApi } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import type { RosterAction, Clan, ActionStatus } from '../types/domain';
 import { RosterActionCard } from '../components/governance/RosterActionCard';
 
 export const GovernancePage: React.FC = () => {
+  const { user } = useAuth();
   const [actions, setActions] = useState<RosterAction[]>([]);
   const [clans, setClans] = useState<Clan[]>([]);
-  const [selectedClan, setSelectedClan] = useState<string>('all');
+  const [selectedClan, setSelectedClan] = useState<string>(() => {
+    return (!user?.is_superuser && user?.clan_tag) ? user.clan_tag : 'all';
+  });
   const [selectedStatus, setSelectedStatus] = useState<ActionStatus | 'all'>('pending');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && !user.is_superuser && user.clan_tag) {
+      setSelectedClan(user.clan_tag);
+    }
+  }, [user]);
+
 
   const loadData = useCallback(async () => {
     try {
@@ -144,27 +155,30 @@ export const GovernancePage: React.FC = () => {
 
         {/* Dropdowns (Clan & Action Type) */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-500 hidden sm:block" />
-            <select
-              value={selectedClan}
-              onChange={(e) => setSelectedClan(e.target.value)}
-              className="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-500"
-            >
-              <option value="all">Todos los Clanes</option>
-              {clans.map((c) => (
-                <option key={c.tag} value={c.tag}>
-                  {c.name} ({c.tag})
-                </option>
-              ))}
-            </select>
-          </div>
+          {user?.is_superuser && clans.length > 1 && (
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-slate-500 hidden sm:block" />
+              <select
+                value={selectedClan}
+                onChange={(e) => setSelectedClan(e.target.value)}
+                className="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              >
+                <option value="all">Todos los Clanes</option>
+                {clans.map((c) => (
+                  <option key={c.tag} value={c.tag}>
+                    {c.name} ({c.tag})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
             className="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-500"
           >
+
             <option value="all">Todos los Tipos</option>
             <option value="kick">Expulsión</option>
             <option value="demote_member">Descenso a Miembro</option>

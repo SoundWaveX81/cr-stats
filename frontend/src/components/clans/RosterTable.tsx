@@ -20,6 +20,7 @@ import { ReliabilityModal, type ReliabilityMemberContext } from '../common/Relia
 interface RosterTableProps {
   members: Member[];
   onGrantWarPass?: (member: Member) => void;
+  currentUserPlayerTag?: string;
 }
 
 type SortField =
@@ -52,7 +53,7 @@ const formatRelativeTime = (
   return { label: `${months} m`, dotColor: 'bg-rose-600' };
 };
 
-export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPass }) => {
+export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPass, currentUserPlayerTag }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField>('trophies');
@@ -263,31 +264,49 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
                 </td>
               </tr>
             ) : (
-              filteredMembers.map((member) => (
-                <tr
-                  key={member.tag}
-                  onClick={() => setSelectedMemberTagForHistory(member.tag)}
-                  className="hover:bg-slate-800/40 transition-colors group cursor-pointer"
-                >
-                  {/* Member Name + Tag */}
-                  <td className="py-3 px-4 sm:px-6">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-100 group-hover:text-amber-400 transition-colors">
-                          {member.name}
+              filteredMembers.map((member) => {
+                const isCurrentUser = Boolean(
+                  currentUserPlayerTag &&
+                    member.tag.toUpperCase() === currentUserPlayerTag.toUpperCase()
+                );
+
+                return (
+                  <tr
+                    key={member.tag}
+                    onClick={() => setSelectedMemberTagForHistory(member.tag)}
+                    className={`transition-colors group cursor-pointer ${
+                      isCurrentUser
+                        ? 'bg-amber-500/10 hover:bg-amber-500/15 border-l-2 border-l-amber-400'
+                        : 'hover:bg-slate-800/40'
+                    }`}
+                  >
+                    {/* Member Name + Tag */}
+                    <td className="py-3 px-4 sm:px-6">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-100 group-hover:text-amber-400 transition-colors">
+                              {member.name}
+                            </span>
+                            {isCurrentUser && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500/25 text-amber-300 border border-amber-500/40">
+                                Tú
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-mono text-[10px] text-slate-500">{member.tag}</span>
+                        </div>
+                        <span
+                          className="opacity-0 group-hover:opacity-100 text-amber-400 transition-opacity"
+                          title="Ver historial de 10 guerras"
+                        >
+                          <History className="w-3.5 h-3.5" />
                         </span>
-                        <span className="font-mono text-[10px] text-slate-500">{member.tag}</span>
                       </div>
-                      <span
-                        className="opacity-0 group-hover:opacity-100 text-amber-400 transition-opacity"
-                        title="Ver historial de 10 guerras"
-                      >
-                        <History className="w-3.5 h-3.5" />
-                      </span>
-                    </div>
-                  </td>
+                    </td>
 
                   {/* Role */}
+
                   <td className="py-3 px-3">
                     <RoleBadge role={member.role} />
                   </td>
@@ -400,8 +419,11 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, onGrantWarPas
                     )}
                   </td>
                 </tr>
-              ))
-            )}
+              );
+            })
+          )}
+
+
           </tbody>
         </table>
       </div>

@@ -9,6 +9,14 @@ class RiverRaceAdmin(admin.ModelAdmin):
     list_filter = ("clan", "season_id", "state")
     search_fields = ("clan__name", "clan__tag")
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if hasattr(request.user, "profile") and request.user.profile.clan:
+            return qs.filter(clan=request.user.profile.clan)
+        return qs.none()
+
 
 @admin.register(WarDay)
 class WarDayAdmin(admin.ModelAdmin):
@@ -16,9 +24,25 @@ class WarDayAdmin(admin.ModelAdmin):
     list_filter = ("day_type", "is_closed", "river_race__clan")
     search_fields = ("river_race__clan__name",)
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if hasattr(request.user, "profile") and request.user.profile.clan:
+            return qs.filter(river_race__clan=request.user.profile.clan)
+        return qs.none()
+
 
 @admin.register(WarAttackLog)
 class WarAttackLogAdmin(admin.ModelAdmin):
     list_display = ("war_day", "member", "attacks_used", "medals_earned", "boat_attacks_count")
     list_filter = ("attacks_used", "boat_attacks_count", "war_day__day_type")
     search_fields = ("member__name", "member__tag")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if hasattr(request.user, "profile") and request.user.profile.clan:
+            return qs.filter(war_day__river_race__clan=request.user.profile.clan)
+        return qs.none()

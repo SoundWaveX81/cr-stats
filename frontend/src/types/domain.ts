@@ -62,7 +62,15 @@ export interface AuthTokens {
 }
 
 export interface UserProfile {
+  id?: number;
   username: string;
+  email?: string;
+  is_superuser?: boolean;
+  role?: 'member' | 'clan_admin';
+  clan_tag?: string | null;
+  clan_name?: string | null;
+  player_tag?: string | null;
+  player_name?: string | null;
 }
 
 export interface CompetingClan {

@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -129,3 +130,106 @@ class WarPass(models.Model):
 
     def __str__(self) -> str:
         return f"Pase para {self.member.name} ({self.start_date} a {self.end_date})"
+
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ("member", "Miembro"),
+        ("clan_admin", "Administrador de Clan"),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
+    )
+    clan = models.ForeignKey(
+        Clan,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="user_profiles",
+        help_text="Clan al que pertenece el usuario (obligatorio para no-superadmins)",
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default="member",
+        help_text="Rol dentro del clan",
+    )
+    player = models.ForeignKey(
+        Member,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="user_profiles",
+        help_text="Tag de jugador asociado en Clash Royale (opcional)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Perfil de Usuario"
+        verbose_name_plural = "Perfiles de Usuario"
+
+    def __str__(self) -> str:
+        clan_name = self.clan.name if self.clan else "Sin Clan"
+        return f"{self.user.username} ({self.get_role_display()} - {clan_name})"
+
+    def save(self, *args, **kwargs):
+        if self.user and not self.user.is_superuser:
+            should_be_staff = self.role == "clan_admin"
+            if self.user.is_staff != should_be_staff:
+                self.user.is_staff = should_be_staff
+                self.user.save(update_fields=["is_staff"])
+        super().save(*args, **kwargs)
+
+
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ("CREATE", "Creación"),
+        ("UPDATE", "Modificación"),
+        ("DELETE", "Eliminación"),
+        ("SYNC_CLAN", "Sincronización de Clan"),
+        ("CREATE_WAR_PASS", "Creación de Pase de Guerra"),
+        ("DELETE_WAR_PASS", "Eliminación de Pase de Guerra"),
+        ("EXECUTE_ROSTER_ACTION", "Ejecución de Acción de Roster"),
+        ("DISMISS_ROSTER_ACTION", "Descarte de Acción de Roster"),
+        ("TEST_NOTIFICATION", "Prueba de Notificación"),
+    ]
+
+    SOURCE_CHOICES = [
+        ("admin", "Django Admin"),
+        ("api", "API REST"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+    )
+    clan = models.ForeignKey(
+        Clan,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+    )
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default="admin")
+    model_name = models.CharField(max_length=64, blank=True)
+    object_id = models.CharField(max_length=64, blank=True)
+    object_repr = models.CharField(max_length=255, blank=True)
+    changes = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Registro de Auditoría"
+        verbose_name_plural = "Registros de Auditoría"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        username = self.user.username if self.user else "Sistema"
+        clan_str = f" [{self.clan.name}]" if self.clan else ""
+        return f"[{self.created_at:%Y-%m-%d %H:%M}] {username}{clan_str}: {self.get_action_display()} ({self.model_name})"

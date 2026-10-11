@@ -19,6 +19,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { clansApi } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import type { Clan, CurrentWarOverview, WarParticipant } from '../types/domain';
 import { RoleBadge } from '../components/common/Badge';
 import { PlayerWarHistoryModal } from '../components/clans/PlayerWarHistoryModal';
@@ -27,6 +28,7 @@ import { ReliabilityModal, type ReliabilityMemberContext } from '../components/c
 export const CurrentWarPage: React.FC = () => {
   const { clanTag: urlClanTag } = useParams<{ clanTag?: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [clans, setClans] = useState<Clan[]>([]);
   const [selectedClan, setSelectedClan] = useState<Clan | null>(null);
@@ -41,6 +43,15 @@ export const CurrentWarPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [attackFilter, setAttackFilter] = useState<'all' | 'zero' | 'incomplete' | 'complete' | 'pass'>('all');
 
+  // Enforce clan scoping for non-superusers
+  useEffect(() => {
+    if (user && !user.is_superuser && user.clan_tag) {
+      if (urlClanTag && urlClanTag.toUpperCase() !== user.clan_tag.toUpperCase()) {
+        navigate(`/clans/${encodeURIComponent(user.clan_tag)}/war`, { replace: true });
+      }
+    }
+  }, [user, urlClanTag, navigate]);
+
   // Load clans list on mount
   useEffect(() => {
     const loadClans = async () => {
@@ -52,8 +63,12 @@ export const CurrentWarPage: React.FC = () => {
         setClans(clanList);
 
         if (clanList.length > 0) {
-          const matchedClan = urlClanTag
-            ? clanList.find((c) => c.tag.toUpperCase() === urlClanTag.toUpperCase()) || clanList[0]
+          const targetTag = (!user?.is_superuser && user?.clan_tag)
+            ? user.clan_tag
+            : urlClanTag;
+
+          const matchedClan = targetTag
+            ? clanList.find((c) => c.tag.toUpperCase() === targetTag.toUpperCase()) || clanList[0]
             : clanList[0];
           setSelectedClan(matchedClan);
         }
@@ -65,7 +80,7 @@ export const CurrentWarPage: React.FC = () => {
     };
 
     loadClans();
-  }, [urlClanTag]);
+  }, [urlClanTag, user]);
 
   // Load current war data whenever selectedClan changes
   const loadWarData = useCallback(async (tag: string, background = false) => {
@@ -183,7 +198,7 @@ export const CurrentWarPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {clans.length > 1 && (
+          {user?.is_superuser && clans.length > 1 && (
             <select
               value={selectedClan?.tag || ''}
               onChange={(e) => handleClanChange(e.target.value)}
@@ -198,6 +213,7 @@ export const CurrentWarPage: React.FC = () => {
           )}
 
           <button
+
             onClick={handleRefresh}
             disabled={isRefreshing}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition-all disabled:opacity-50"
@@ -525,20 +541,34 @@ export const CurrentWarPage: React.FC = () => {
                 filteredParticipants.map((p) => {
                   const isDone = p.attacks_used >= 4;
                   const isZero = p.attacks_used === 0;
+                  const isCurrentUser = Boolean(
+                    user?.player_tag && p.tag.toUpperCase() === user.player_tag.toUpperCase()
+                  );
 
                   return (
                     <tr
                       key={p.tag}
                       onClick={() => setSelectedMemberTagForHistory(p.tag)}
-                      className="hover:bg-slate-800/40 transition-colors group cursor-pointer"
+                      className={`transition-colors group cursor-pointer ${
+                        isCurrentUser
+                          ? 'bg-amber-500/10 hover:bg-amber-500/15 border-l-2 border-l-amber-400'
+                          : 'hover:bg-slate-800/40'
+                      }`}
                     >
                       {/* Name & Tag */}
                       <td className="py-3 px-4 sm:px-6">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-100 group-hover:text-amber-400 transition-colors">
-                              {p.name}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-100 group-hover:text-amber-400 transition-colors">
+                                {p.name}
+                              </span>
+                              {isCurrentUser && (
+                                <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500/25 text-amber-300 border border-amber-500/40">
+                                  Tú
+                                </span>
+                              )}
+                            </div>
                             <span className="font-mono text-[10px] text-slate-500">{p.tag}</span>
                           </div>
                           <span
@@ -549,6 +579,7 @@ export const CurrentWarPage: React.FC = () => {
                           </span>
                         </div>
                       </td>
+
 
                       {/* Role */}
                       <td className="py-3 px-3">

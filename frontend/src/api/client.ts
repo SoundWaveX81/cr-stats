@@ -6,8 +6,10 @@ import type {
   Member,
   MemberWarHistoryResponse,
   RosterAction,
+  UserProfile,
   WarPass,
 } from '../types/domain';
+
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -175,6 +177,13 @@ export const membersApi = {
   getWarHistory: async (tag: string) => {
     const encodedTag = encodeURIComponent(tag);
     const { data } = await apiClient.get<MemberWarHistoryResponse>(`/api/members/${encodedTag}/war-history/`);
+    return data;
+  },
+};
+
+export const authApi = {
+  getMe: async () => {
+    const { data } = await apiClient.get<UserProfile>('/api/me/');
     return data;
   },
 };

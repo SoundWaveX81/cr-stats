@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Shield, Users, Swords, Award, Ticket, LogOut } from 'lucide-react';
+import { Shield, Users, Swords, Award, Ticket, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const Navbar: React.FC = () => {
@@ -18,6 +18,8 @@ export const Navbar: React.FC = () => {
         ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-sm'
         : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
     }`;
+
+  const isPrivileged = Boolean(user?.is_superuser || user?.role === 'clan_admin');
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
@@ -65,10 +67,43 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center gap-3">
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
+              {isPrivileged && (
+                <a
+                  href="/admin/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all shadow-sm"
+                  title="Abrir Django Admin"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Admin</span>
+                </a>
+              )}
+
               <div className="hidden sm:flex flex-col text-right">
-                <span className="text-xs text-slate-400 font-medium">Líder conectado</span>
-                <span className="text-sm font-semibold text-slate-200">{user?.username}</span>
+                <div className="flex items-center justify-end gap-1.5">
+                  {user?.is_superuser ? (
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      Superadmin
+                    </span>
+                  ) : user?.role === 'clan_admin' ? (
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Admin Clan
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400">
+                      Miembro
+                    </span>
+                  )}
+                  <span className="text-sm font-semibold text-slate-200">{user?.username}</span>
+                </div>
+                {user?.clan_name && (
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {user.clan_name} <span className="font-mono text-slate-500">({user.clan_tag})</span>
+                  </span>
+                )}
               </div>
+
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all"
@@ -87,6 +122,7 @@ export const Navbar: React.FC = () => {
             </NavLink>
           )}
         </div>
+
       </div>
 
       {/* Mobile Navigation bar */}

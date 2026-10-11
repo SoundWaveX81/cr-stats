@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Ticket, Calendar, User, FileText, AlertCircle, Loader2 } from 'lucide-react';
 import { warPassesApi, clansApi } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 import type { Clan, Member, WarPass } from '../../types/domain';
 
 interface CreateWarPassModalProps {
@@ -18,10 +19,13 @@ export const CreateWarPassModal: React.FC<CreateWarPassModalProps> = ({
   initialClanTag,
   initialMemberTag,
 }) => {
+  const { user } = useAuth();
+  const effectiveInitialClan = (!user?.is_superuser && user?.clan_tag) ? user.clan_tag : initialClanTag;
   const [clans, setClans] = useState<Clan[]>([]);
-  const [selectedClanTag, setSelectedClanTag] = useState<string>(initialClanTag || '');
+  const [selectedClanTag, setSelectedClanTag] = useState<string>(effectiveInitialClan || '');
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedMemberTag, setSelectedMemberTag] = useState<string>(initialMemberTag || '');
+
 
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(() => {
@@ -139,8 +143,8 @@ export const CreateWarPassModal: React.FC<CreateWarPassModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          {/* Clan select */}
-          {clans.length > 1 && (
+          {/* Clan select (Superuser only) */}
+          {user?.is_superuser && clans.length > 1 && (
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Clan</label>
               <select
@@ -161,6 +165,7 @@ export const CreateWarPassModal: React.FC<CreateWarPassModalProps> = ({
           )}
 
           {/* Member select */}
+
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
               <span>Miembro a Exentar</span>

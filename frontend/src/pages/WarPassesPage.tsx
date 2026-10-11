@@ -2,22 +2,34 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Ticket, Plus, Trash2, Calendar, Shield, Loader2, CheckCircle2 } from 'lucide-react';
 import { warPassesApi, clansApi } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import type { WarPass, Clan } from '../types/domain';
 import { CreateWarPassModal } from '../components/war-passes/CreateWarPassModal';
 
 export const WarPassesPage: React.FC = () => {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const initialMember = searchParams.get('member') || undefined;
   const initialClan = searchParams.get('clan') || undefined;
 
   const [passes, setPasses] = useState<WarPass[]>([]);
   const [clans, setClans] = useState<Clan[]>([]);
-  const [selectedClan, setSelectedClan] = useState<string>(initialClan || 'all');
+  const [selectedClan, setSelectedClan] = useState<string>(() => {
+    if (!user?.is_superuser && user?.clan_tag) return user.clan_tag;
+    return initialClan || 'all';
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(Boolean(initialMember));
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [todayStr] = useState<string>(() => new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    if (user && !user.is_superuser && user.clan_tag) {
+      setSelectedClan(user.clan_tag);
+    }
+  }, [user]);
+
 
   const loadData = useCallback(async () => {
     try {
@@ -108,7 +120,7 @@ export const WarPassesPage: React.FC = () => {
       )}
 
       {/* Filter Bar */}
-      {clans.length > 1 && (
+      {user?.is_superuser && clans.length > 1 && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-400">Filtrar por Clan:</span>
           <select
@@ -125,6 +137,7 @@ export const WarPassesPage: React.FC = () => {
           </select>
         </div>
       )}
+
 
       {/* Passes List / Table */}
       {isLoading ? (
@@ -227,9 +240,10 @@ export const WarPassesPage: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleCreated}
-        initialClanTag={initialClan}
+        initialClanTag={(!user?.is_superuser && user?.clan_tag) ? user.clan_tag : initialClan}
         initialMemberTag={initialMember}
       />
+
     </div>
   );
 };
